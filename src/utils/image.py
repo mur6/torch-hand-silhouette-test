@@ -1,20 +1,11 @@
 from pathlib import Path
 
 import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
-from torchvision import models, transforms
 
 
 def load_image(base_path, *, number):
-    # image_name = "data/input_images/datasets/training/images/image_000032.jpg"
-    # mask_name = "data/input_images/datasets/training/masks/image_000032.png"
     image_path = base_path / "rgb" / f"{number:08d}.jpg"
     mask_path = base_path / "segmap" / f"{number:08d}.png"
     print(image_path)
