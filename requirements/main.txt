@@ -1,4 +1,4 @@
-torch
+torch==1.12.1
 torchvision
 matplotlib
 pandas
@@ -9,3 +9,4 @@ chumpy==0.70
 pyglet
 imageio
 scikit-image
+pytorch3d==0.7.0
