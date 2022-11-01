@@ -1,42 +1,20 @@
-# from model import HandSilhouetteNet3
-
-import argparse
-import os
-import random
-import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
 from pytorch3d.renderer import (
     BlendParams,
-    DirectionalLights,
-    FoVPerspectiveCameras,
-    HardPhongShader,
-    Materials,
     MeshRasterizer,
     MeshRenderer,
     PerspectiveCameras,
-    PointLights,
     RasterizationSettings,
-    SoftPhongShader,
     SoftSilhouetteShader,
-    TexturesUV,
     TexturesVertex,
-    look_at_rotation,
     look_at_view_transform,
 )
 from pytorch3d.structures import Meshes
-
-# from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
-from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
-from torchvision import models, transforms
+from torchvision import models
 
 import mano
 
@@ -284,3 +262,13 @@ class Model(nn.Module):
             # "refined_vertices": vertices,
         }
         return result
+
+
+if __name__ == "__main__":
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    ds = FreiHAND(Path("data/freihand"), device)
+    d = ds[46]
+    vertices = d["vertices"] * RAW_IMG_SIZE
+    # print(vertices)
+    keypoints = d["keypoints"] * RAW_IMG_SIZE
+    show_data(d["image_raw"], vertices)

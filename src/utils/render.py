@@ -1,49 +1,17 @@
-# from model import HandSilhouetteNet3
-
-import argparse
-import os
-import random
-import sys
-from pathlib import Path
-
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
-from pytorch3d.io import load_obj, load_objs_as_meshes
 from pytorch3d.renderer import (
     BlendParams,
-    DirectionalLights,
     FoVPerspectiveCameras,
     HardPhongShader,
-    Materials,
     MeshRasterizer,
     MeshRenderer,
-    PerspectiveCameras,
     PointLights,
     RasterizationSettings,
-    SoftPhongShader,
     SoftSilhouetteShader,
-    TexturesUV,
-    TexturesVertex,
-    look_at_rotation,
-    look_at_view_transform,
 )
-from pytorch3d.structures import Meshes
 
 # from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
-from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
-from torch.utils.data import DataLoader
-from torchvision import models, transforms
-from tqdm import tqdm
-
-import mano
-from dataset import FreiHandDataset_Estimated as FreiHandDataset
 
 
 def make_silhouette_phong_renderer(device, image_size=224):
