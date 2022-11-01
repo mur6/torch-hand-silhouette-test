@@ -8,3 +8,7 @@ $ source .venv/bin/activate.fish
 ```
 
 ## Run
+```
+PYTHONPATH=. python src/model.py
+PYTHONPATH=. python src/loss.py
+```

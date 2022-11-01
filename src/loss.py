@@ -1,20 +1,6 @@
-# from model import HandSilhouetteNet3
-
-import argparse
-import os
-import random
-import sys
-from pathlib import Path
-
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
-from torchvision import models, transforms
 
 
 def batch_align_w_scale(mtx1, mtx2):
