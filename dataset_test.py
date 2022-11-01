@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -130,11 +131,19 @@ def show_data(image_raw, keypoints):
     plt.show()
 
 
-if __name__ == "__main__":
+def main(data_path):
+    print(data_path)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    ds = FreiHAND(Path("data/freihand"), device)
+    ds = FreiHAND(data_path, device)
     d = ds[46]
     vertices = d["vertices"] * RAW_IMG_SIZE
     # print(vertices)
     keypoints = d["keypoints"] * RAW_IMG_SIZE
     show_data(d["image_raw"], vertices)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", type=Path, default="./data/freihand/")
+    args = parser.parse_args()
+    main(args.data_path)
