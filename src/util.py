@@ -48,3 +48,13 @@ def load_image(num):
     im_rgb = torch.from_numpy(im_rgb.transpose(2, 0, 1)).clone()
     im_rgb = im_rgb.unsqueeze(0) / 255
     return im_rgb, torch.from_numpy(mask).unsqueeze(0), dist_map
+
+
+if __name__ == "__main__":
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    ds = FreiHAND(Path("data/freihand"), device)
+    d = ds[46]
+    vertices = d["vertices"] * RAW_IMG_SIZE
+    # print(vertices)
+    keypoints = d["keypoints"] * RAW_IMG_SIZE
+    show_data(d["image_raw"], vertices)
