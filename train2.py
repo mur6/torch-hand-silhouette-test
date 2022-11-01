@@ -15,7 +15,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
-from dataset import FreiHandDataset_Estimated as FreiHandDataset
 from pytorch3d.io import load_obj, load_objs_as_meshes
 from pytorch3d.renderer import (
     BlendParams,
@@ -44,45 +43,10 @@ from torchvision import models, transforms
 from tqdm import tqdm
 
 import mano
-from loss import FocalLoss, IoULoss
+from dataset import FreiHandDataset_Estimated as FreiHandDataset
 
-
-def load_image(num):
-    # image_name = "data/input_images/datasets/training/images/image_000032.jpg"
-    # mask_name = "data/input_images/datasets/training/masks/image_000032.png"
-    base_path = Path("data/freihand/evaluation/")
-    image_path = base_path / "rgb" / f"{num:08d}.jpg"
-    mask_path = base_path / "segmap" / f"{num:08d}.png"
-    print(image_path)
-    print(mask_path)
-    image_name = str(image_path)
-    mask_name = str(mask_path)
-    mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)
-    mask = np.where(mask == 0, 0, 1)
-    # print(mask[0, 0])
-
-    orig_image = cv2.imread(image_name, cv2.IMREAD_GRAYSCALE)
-    image = 255 - orig_image
-
-    if image.shape != (224, 224):
-        image_ref = cv2.resize(image, (224, 224))
-        image_ref = cv2.threshold(image_ref, 127, 1, cv2.THRESH_BINARY)[1]
-    else:
-        image_ref = cv2.threshold(image, 127, 1, cv2.THRESH_BINARY)[1]
-
-    # Extract contour and compute distance transform
-    contour = cv2.Laplacian(image_ref, -1)
-    contour = cv2.threshold(contour, 0, 1, cv2.THRESH_BINARY_INV)[1]
-    dist_map = cv2.distanceTransform(contour, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
-    dist_map = torch.tensor(dist_map)
-
-    # image_ref = torch.tensor(image_ref, dtype=torch.int).unsqueeze(0)
-
-    im = cv2.imread(image_name)
-    im_rgb = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-    im_rgb = torch.from_numpy(im_rgb.transpose(2, 0, 1)).clone()
-    im_rgb = im_rgb.unsqueeze(0) / 255
-    return im_rgb, torch.from_numpy(mask).unsqueeze(0), dist_map
+# from loss import FocalLoss, IoULoss
+from src.loss import criterion
 
 
 def make_silhouette_phong_renderer(device, image_size=224):
@@ -123,20 +87,6 @@ def make_silhouette_phong_renderer(device, image_size=224):
         shader=HardPhongShader(device=device, cameras=cameras, lights=lights),
     )
     return silhouette_renderer, phong_renderer
-
-
-def criterion(contour_loss, mask, vertices, pred_mask, pred_vertices):
-    print(f"mask: {mask.shape}")
-    print(torch.max(mask), torch.min(mask))
-    # print(f"vertices: {vertices.shape}")
-    print(f"pred_mask: {pred_mask.shape}")
-    print(torch.max(pred_mask), torch.min(pred_mask))
-    # print(f"pred_vertices: {pred_vertices.shape}")
-    loss1 = aligned_meshes_loss(vertices, pred_vertices)
-    loss2 = 0.0001 * torch.sum((mask - pred_mask) ** 2)
-    # loss2 = contour_loss(mask, pred_mask)
-    print(loss1, loss2)
-    return loss1 + loss2
 
 
 def main(args):

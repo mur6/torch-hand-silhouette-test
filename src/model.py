@@ -14,7 +14,31 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+from pytorch3d.renderer import (
+    BlendParams,
+    DirectionalLights,
+    FoVPerspectiveCameras,
+    HardPhongShader,
+    Materials,
+    MeshRasterizer,
+    MeshRenderer,
+    PerspectiveCameras,
+    PointLights,
+    RasterizationSettings,
+    SoftPhongShader,
+    SoftSilhouetteShader,
+    TexturesUV,
+    TexturesVertex,
+    look_at_rotation,
+    look_at_view_transform,
+)
+from pytorch3d.structures import Meshes
+
+# from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
+from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from torchvision import models, transforms
+
+import mano
 
 
 class Encoder_with_Shape(nn.Module):

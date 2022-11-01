@@ -83,3 +83,17 @@ class ContourLoss(nn.Module):
         assert dist >= 0
 
         return dist
+
+
+def criterion(contour_loss, mask, vertices, pred_mask, pred_vertices):
+    print(f"mask: {mask.shape}")
+    print(torch.max(mask), torch.min(mask))
+    # print(f"vertices: {vertices.shape}")
+    print(f"pred_mask: {pred_mask.shape}")
+    print(torch.max(pred_mask), torch.min(pred_mask))
+    # print(f"pred_vertices: {pred_vertices.shape}")
+    loss1 = aligned_meshes_loss(vertices, pred_vertices)
+    loss2 = 0.0001 * torch.sum((mask - pred_mask) ** 2)
+    # loss2 = contour_loss(mask, pred_mask)
+    print(loss1, loss2)
+    return loss1 + loss2
