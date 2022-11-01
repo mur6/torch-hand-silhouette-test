@@ -12,12 +12,11 @@ import torchvision
 from torchvision import models, transforms
 
 
-def load_image(num):
+def load_image(base_path, *, number):
     # image_name = "data/input_images/datasets/training/images/image_000032.jpg"
     # mask_name = "data/input_images/datasets/training/masks/image_000032.png"
-    base_path = Path("data/freihand/evaluation/")
-    image_path = base_path / "rgb" / f"{num:08d}.jpg"
-    mask_path = base_path / "segmap" / f"{num:08d}.png"
+    image_path = base_path / "rgb" / f"{number:08d}.jpg"
+    mask_path = base_path / "segmap" / f"{number:08d}.png"
     print(image_path)
     print(mask_path)
     image_name = str(image_path)
@@ -51,10 +50,7 @@ def load_image(num):
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    ds = FreiHAND(Path("data/freihand"), device)
-    d = ds[46]
-    vertices = d["vertices"] * RAW_IMG_SIZE
-    # print(vertices)
-    keypoints = d["keypoints"] * RAW_IMG_SIZE
-    show_data(d["image_raw"], vertices)
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    base_path = Path("../my-mask2hand/data/freihand/evaluation/")
+    im_rgb, mask, dist_map = load_image(base_path, number=46)
+    print(f"im_rgb: {im_rgb.shape} mask: {mask.shape}, dist_map: {dist_map.shape}")
