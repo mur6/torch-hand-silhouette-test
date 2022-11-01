@@ -1,0 +1,11 @@
+torch
+torchvision
+matplotlib
+pandas
+opencv-python
+trimesh
+scipy
+chumpy==0.70
+pyglet
+imageio
+scikit-image
