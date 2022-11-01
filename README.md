@@ -11,4 +11,7 @@ $ source .venv/bin/activate.fish
 ```
 PYTHONPATH=. python src/model.py
 PYTHONPATH=. python src/loss.py
+PYTHONPATH=. python src/utils/image.py
+PYTHONPATH=. python src/utils/render.py
+PYTHONPATH=. python src/utils/mano.py
 ```
