@@ -16,21 +16,18 @@ from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
 
 
-def show_images(image_raw, image, mask, orig_grey_image, vertices):
+def show_images(image_raw, image, mask, vertices):
     # image = image_raw.numpy()
     # image = np.moveaxis(image, 0, -1)
 
     # plt.imshow(image)
     # plt.scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.5)
-    # plt.tight_layout()
-
-    nrows, ncols = 2, 3
+    nrows, ncols = 2, 2
     fig, axs = plt.subplots(nrows, ncols)
     axs = axs.flatten()
     label_and_images = (
         ("image raw", image_raw),
         ("image", image),
-        # ("orig grey image", orig_grey_image),
         ("mask", mask),
     )
     for index, (label, image) in zip(range(nrows * ncols), label_and_images):
@@ -40,6 +37,8 @@ def show_images(image_raw, image, mask, orig_grey_image, vertices):
             axs[index].imshow(image.permute(1, 2, 0).detach().numpy())
         else:
             axs[index].imshow(image.detach().numpy())
+    axs[0].scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.1)
+    plt.tight_layout()
     plt.show()
 
 

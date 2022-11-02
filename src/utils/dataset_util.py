@@ -1,5 +1,6 @@
 import json
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -35,6 +36,7 @@ class FreiHAND(Dataset):
 
     def __init__(self, base_path):
         self.image_dir = base_path / "evaluation" / "rgb"
+        self.mask_dir = base_path / "evaluation" / "segmap"
         # self.image_names = np.sort(os.listdir(self.image_dir))
         fn_K_matrix = base_path / "evaluation_K.json"
         with open(fn_K_matrix, "r") as f:
@@ -53,7 +55,8 @@ class FreiHAND(Dataset):
         # print(self.image_names[:10])
         # self.K_matrix = self.K_matrix
         # self.anno = self.anno
-
+        self.mask_names = list(sorted(self.mask_dir.glob("*.png")))  # f"{number:08d}.png"
+        # print(self.mask_names[:10])
         self.image_raw_transform = transforms.ToTensor()
         self.image_transform = transforms.Compose(
             [
@@ -72,6 +75,10 @@ class FreiHAND(Dataset):
         image = self.image_transform(image_raw)
         image_raw = self.image_raw_transform(image_raw)
 
+        mask_name = self.mask_names[idx]
+        mask = cv2.imread(str(mask_name), cv2.IMREAD_GRAYSCALE)
+        mask = np.where(mask == 0, 0, 1)
+
         keypoints = projectPoints(self.anno[idx], self.K_matrix[idx])
         keypoints = keypoints / RAW_IMG_SIZE
         keypoints = torch.from_numpy(keypoints)
@@ -88,6 +95,7 @@ class FreiHAND(Dataset):
             "vertices": vertices,
             "image_name": image_name,
             "image_raw": image_raw,
+            "mask": torch.from_numpy(mask),
         }
 
 
