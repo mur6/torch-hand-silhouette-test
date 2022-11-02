@@ -59,7 +59,7 @@ def main(args):
     vertices = data["vertices"]
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    #
+    print("vertices: ", vertices.mean())
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
@@ -70,6 +70,7 @@ def main(args):
     pred = model(focal_lens)
     pred_vertices = pred["vertices"]
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+    print("pred vertices: ", pred_vertices.mean())
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
     loop = tqdm(range(50))

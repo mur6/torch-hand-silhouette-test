@@ -254,11 +254,11 @@ class Model(nn.Module):
         # diff_map = torch.cat((mask_gt.unsqueeze(1), silhouettes.unsqueeze(1)), dim=1)
         # vertices = rh_output.vertices
         # #################### Refinement End ######################
-
+        alpha = 0.3050 / 9.8489
         result = {
             # "output_joints": output_joints,
             "silhouettes": silhouettes,
-            "vertices": rh_output.vertices,
+            "vertices": rh_output.vertices * alpha,
             # "refined_vertices": vertices,
         }
         return result
