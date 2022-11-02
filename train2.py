@@ -67,7 +67,7 @@ def show_3d_plot(points3d):
 def main(args):
     data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
-    k_matrix = data["K_matrix"]
+    mask = torch.tensor(data["mask"], dtype=torch.float32).unsqueeze(0)
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
 
@@ -108,7 +108,26 @@ def main(args):
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
     pred_meshes = hand_pred_data["torch3d_meshes"]
-    ss_model = SimpleSilhouetteModel(device, silhouette_renderer, pred_meshes)
+    ss_model = SimpleSilhouetteModel(device, silhouette_renderer, pred_meshes.detach())
+    ss_model.train()
+
+    # focal_lens = data["focal_len"].unsqueeze(0)
+    im = ss_model()
+    silhouette_image = im[..., 3]
+
+    print("pred silhouette_image: ", silhouette_image.shape, silhouette_image.dtype)
+    print("mask: ", mask.shape, mask.dtype)
+    optimizer = optim.Adam(ss_model.parameters(), lr=0.4)
+
+    loop = tqdm(range(args.num_epochs))
+    for epoch in loop:
+        optimizer.zero_grad()
+        im = ss_model()
+        silhouette_image = im[..., 3]
+        loss = torch.sum((silhouette_image - mask) ** 2)
+        loss.backward()
+        optimizer.step()
+        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
 
 
 if __name__ == "__main__":
