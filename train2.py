@@ -18,7 +18,8 @@ from src.utils.render import make_silhouette_phong_renderer
 
 def show_images(image_raw, image, mask, vertices, pred_vertices):
     print("vertices: ", vertices.shape)
-    print("pred_vertices: ", pred_vertices.shape)
+    if pred_vertices is not None:
+        print("pred_vertices: ", pred_vertices.shape)
     # image = image_raw.numpy()
     # image = np.moveaxis(image, 0, -1)
 
@@ -41,7 +42,8 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
         else:
             axs[index].imshow(image.detach().numpy())
     axs[0].scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.1)
-    axs[3].scatter(pred_vertices[:, 0], pred_vertices[:, 1], c="red", alpha=0.3)
+    if pred_vertices is not None:
+        axs[3].scatter(pred_vertices[:, 0], pred_vertices[:, 1], c="red", alpha=0.3)
     plt.tight_layout()
     plt.show()
 
@@ -57,7 +59,7 @@ def main_2(args):
 
 
 def main(args):
-    data = FreiHAND(args.data_path)[46]
+    data = FreiHAND(args.data_path)[45]
     vertices = data["vertices"]
     k_matrix = data["K_matrix"]
 
@@ -76,7 +78,7 @@ def main(args):
     print("pred vertices: ", pred_vertices.mean())
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
-    loop = tqdm(range(250))
+    loop = tqdm(range(100))
     for epoch in loop:
         optimizer.zero_grad()
         pred = model(focal_lens)
@@ -88,16 +90,22 @@ def main(args):
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
 
-    pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
-    print("pred_v2d: ", pred_v2d.shape)
-    print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
+    # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
+    # print("pred_v2d: ", pred_v2d.shape)
+    # print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
     show_images(
         data["image_raw"],
         data["image"],
         data["mask"],
         vertices=data["vertices2d"] * RAW_IMG_SIZE,
-        pred_vertices=torch.from_numpy(pred_v2d),
+        pred_vertices=None,
     )
+    pred_v3d = pred_vertices.squeeze(0).detach().numpy()
+    print(pred_v3d.shape, pred_v3d)
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.scatter(pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2], marker="o")
+    plt.show()
 
 
 from mpl_toolkits.mplot3d import Axes3D
@@ -149,4 +157,4 @@ if __name__ == "__main__":
     parser.add_argument("--num_pcs", type=int, default=45, help="number of pose PCs (ex: 6, 45)")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
-    main_4(args)
+    main(args)
