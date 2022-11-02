@@ -74,7 +74,6 @@ def main(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
     hand_model = HandModel(device)
-    # ss_model = SimpleSilhouetteModel(device, silhouette_renderer)
     hand_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
@@ -98,15 +97,18 @@ def main(args):
     # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
     # print("pred_v2d: ", pred_v2d.shape)
     # print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
-    show_images(
-        data["image_raw"],
-        data["image"],
-        data["mask"],
-        vertices=data["vertices2d"] * RAW_IMG_SIZE,
-        pred_vertices=None,
-    )
-    pred_v3d = pred_vertices.squeeze(0).detach().numpy()
-    show_3d_plot(pred_v3d)
+    if args.visualize:
+        show_images(
+            data["image_raw"],
+            data["image"],
+            data["mask"],
+            vertices=data["vertices2d"] * RAW_IMG_SIZE,
+            pred_vertices=None,
+        )
+        pred_v3d = pred_vertices.squeeze(0).detach().numpy()
+        show_3d_plot(pred_v3d)
+    pred_meshes = hand_pred_data["torch3d_meshes"]
+    ss_model = SimpleSilhouetteModel(device, silhouette_renderer, pred_meshes)
 
 
 if __name__ == "__main__":
@@ -119,7 +121,6 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--init_lr", type=float, default=1e-4)
-    parser.add_argument("--num_pcs", type=int, default=45, help="number of pose PCs (ex: 6, 45)")
-    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--visualize", action="store_true")
     args = parser.parse_args()
     main(args)
