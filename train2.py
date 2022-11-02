@@ -16,10 +16,29 @@ from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
 
 
+def show_images(image_raw, image, vertices):
+    # image = image_raw.numpy()
+    # image = np.moveaxis(image, 0, -1)
+
+    # plt.imshow(image)
+    # plt.scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.5)
+    # plt.tight_layout()
+
+    nrows, ncols = 2, 2
+    fig, axs = plt.subplots(nrows, ncols)
+    axs = axs.flatten()
+    label_and_images = (("image raw", image_raw), ("image", image))
+    for index, (label, image) in zip(range(nrows * ncols), label_and_images):
+        axs[index].set_title(label)
+        axs[index].imshow(image.permute(1, 2, 0).detach().numpy())
+    plt.show()
+
+
 def main_2(args):
     d = FreiHAND(args.data_path)[46]
     vertices = d["vertices"] * RAW_IMG_SIZE
-    show_data(d["image_raw"], vertices)
+    # show_data(d["image_raw"], vertices)
+    show_images(d["image_raw"], d["image"], vertices)
 
 
 def main(args):

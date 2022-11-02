@@ -1,9 +1,6 @@
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
-
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, show_data
 
 
