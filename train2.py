@@ -108,39 +108,6 @@ def main(args):
     plt.show()
 
 
-def main_3(args):
-    data = FreiHAND(args.data_path)[46]
-    # vertices = data["vertices"]
-    k_matrix = data["K_matrix"]
-
-    rh_model, output = make_random_mano_model()
-    # # coordinate_transform = torch.tensor([[-1, -1, 1]])
-    # # verts = output.vertices[0] * coordinate_transform
-    # h_meshes = rh_model.hand_meshes(output)
-    # h_meshes[0].show()
-
-    verts = output.vertices[0]
-    print(k_matrix)
-    pred_v2d = projectPoints(verts, k_matrix.numpy())
-    print("pred_v2d: ", pred_v2d.shape)
-    print(verts)
-    plt.scatter(pred_v2d[:, 0], pred_v2d[:, 1], c="red", alpha=1.0)
-    plt.show()
-
-
-def main_4(args):
-    data = FreiHAND(args.data_path)[46]
-    k_matrix = data["K_matrix"]
-
-    rh_model, output = make_random_mano_model()
-    verts = output.vertices[0]
-    print(verts.shape, verts)
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax.scatter(verts[:, 0], verts[:, 1], verts[:, 2], marker="o")
-    plt.show()
-
-
 if __name__ == "__main__":
     torch.manual_seed(0)
     np.random.seed(0)
