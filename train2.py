@@ -78,7 +78,20 @@ def main(args):
     axs[3].imshow(pred_silhouettes[0].detach().numpy())
     # axs[3].set_title("dist_map")
     # axs[3].imshow(dist_map.detach().numpy())
-    plt.show()
+    # plt.show()
+    print(pred_vertices.shape)
+    contour_loss = ContourLoss(device=device)
+    optimizer = optim.Adam(model.parameters(), lr=0.4)
+    loop = tqdm(range(50))
+    for epoch in loop:
+        optimizer.zero_grad()
+        d = model(focal_lens)
+        pred_silhouettes = d["silhouettes"]
+        pred_vertices = d["vertices"]
+        loss = criterion(contour_loss, mask, mesh.unsqueeze(0), pred_silhouettes, pred_vertices)
+        loss.backward()
+        optimizer.step()
+        print(f"[Epoch {epoch}] Training Loss: {loss}")
 
 
 if __name__ == "__main__":
