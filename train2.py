@@ -11,7 +11,7 @@ from tqdm import tqdm
 from src.loss import vertices_criterion
 from src.model import Model
 from src.utils.data import get_dataset
-from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND
+from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
 from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
 
@@ -31,6 +31,7 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
         ("image raw", image_raw),
         ("image", image),
         ("mask", mask),
+        ("result", image_raw),
     )
     for index, (label, image) in zip(range(nrows * ncols), label_and_images):
         axs[index].set_title(label)
@@ -40,6 +41,7 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
         else:
             axs[index].imshow(image.detach().numpy())
     axs[0].scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.1)
+    axs[3].scatter(pred_vertices[:, 0], pred_vertices[:, 1], c="red", alpha=0.3)
     plt.tight_layout()
     plt.show()
 
@@ -57,6 +59,7 @@ def main_2(args):
 def main(args):
     data = FreiHAND(args.data_path)[46]
     vertices = data["vertices"]
+    k_matrix = data["K_matrix"]
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("vertices: ", vertices.mean())
@@ -73,7 +76,7 @@ def main(args):
     print("pred vertices: ", pred_vertices.mean())
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
-    loop = tqdm(range(50))
+    loop = tqdm(range(250))
     for epoch in loop:
         optimizer.zero_grad()
         pred = model(focal_lens)
@@ -84,12 +87,16 @@ def main(args):
         tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+
+    pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
+    print("pred_v2d: ", pred_v2d.shape)
+    print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
     show_images(
         data["image_raw"],
         data["image"],
         data["mask"],
         vertices=data["vertices2d"] * RAW_IMG_SIZE,
-        pred_vertices=pred_vertices.squeeze(0),
+        pred_vertices=torch.from_numpy(pred_v2d),
     )
 
 

@@ -90,7 +90,7 @@ class FreiHAND(Dataset):
         vertices2d = torch.from_numpy(vertices2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
         focal_len = torch.tensor([self.K_matrix[idx][0][0], self.K_matrix[idx][1][1]])
-
+        print("K_matrix:", self.K_matrix[idx])
         return {
             "image": image,
             "keypoints": keypoints,
@@ -100,6 +100,7 @@ class FreiHAND(Dataset):
             "image_raw": image_raw,
             "mask": torch.from_numpy(mask),
             "focal_len": focal_len,
+            "K_matrix": torch.tensor(self.K_matrix[idx]),
         }
 
 
