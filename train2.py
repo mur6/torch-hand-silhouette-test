@@ -49,7 +49,6 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
 
 
 def show_3d_plot(points3d):
-    points3d = points3d.squeeze(0).detach().numpy()
     # print(pred_v3d.shape, pred_v3d)
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
