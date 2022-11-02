@@ -11,6 +11,7 @@ from pytorch3d.renderer import (
     RasterizationSettings,
     SoftSilhouetteShader,
     TexturesVertex,
+    look_at_rotation,
     look_at_view_transform,
 )
 from pytorch3d.structures import Meshes
@@ -19,8 +20,80 @@ from torchvision import models
 import mano
 
 
-class Model(nn.Module):
+class HandModel(nn.Module):
     mano_model_path = "./models/MANO_RIGHT.pkl"
+    n_comps = 45
+    batch_size = 1
+
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+        self.rh_model = mano.load(
+            model_path=self.mano_model_path,
+            is_right=True,
+            num_pca_comps=self.n_comps,
+            batch_size=self.batch_size,
+            flat_hand_mean=False,
+        )
+
+        betas = torch.rand(self.batch_size, 10) * 0.1
+        pose = torch.rand(self.batch_size, self.n_comps) * 0.1
+        global_orient = torch.rand(self.batch_size, 3)
+        transl = torch.rand(self.batch_size, 3)
+        self.betas = nn.Parameter(betas.to(self.device))
+        self.pose = nn.Parameter(pose.to(self.device))
+        self.global_orient = nn.Parameter(global_orient.to(self.device))
+        self.transl = nn.Parameter(transl.to(self.device))
+
+    def forward(self):
+        # Global orient & pose PCAs to 3D hand joints & reconstructed silhouette
+        rh_output = self.rh_model(
+            betas=self.betas,
+            global_orient=self.global_orient,
+            hand_pose=self.pose,
+            transl=self.transl,
+            return_verts=True,
+            return_tips=True,
+        )
+        # alpha = 0.3050 / 9.8489
+
+        ############################################
+        verts_rgb = torch.ones_like(rh_output.vertices)  # (B, V, 3)
+        textures = TexturesVertex(verts_features=verts_rgb.to(self.device))
+
+        # Coordinate transformation from FreiHand to PyTorch3D for rendering
+        # [FreiHand] +X: right, +Y: down, +Z: in
+        # [PyTorch3D] +X: left, +Y: up, +Z: in
+        coordinate_transform = torch.tensor([[-1, -1, 1]]).to(self.device)
+        mesh_faces = torch.tensor(self.rh_model.faces.astype(int)).to(self.device)
+
+        # Create a Meshes object
+        batch_size = self.batch_size
+        torch3d_meshes = Meshes(
+            verts=[rh_output.vertices[i] * coordinate_transform for i in range(batch_size)],
+            faces=[mesh_faces for i in range(batch_size)],
+            textures=textures,
+        )
+        return {"torch3d_meshes": torch3d_meshes, "vertices": rh_output.vertices}
+
+
+class SimpleSilhouetteModel(nn.Module):
+    def __init__(self, device, renderer, meshes):
+        super().__init__()
+        self.device = device
+        self.renderer = renderer
+        self.meshes = meshes
+        self.camera_position = nn.Parameter(torch.from_numpy(np.array([3.0, 6.9, +2.5], dtype=np.float32)).to(device))
+
+    def forward(self):
+        R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
+        T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
+        # Calculate the silhouette loss
+        # loss = torch.sum((image[..., 3] - self.image_ref) ** 2)
+        return self.renderer(meshes_world=self.meshes.clone(), R=R, T=T)
+
+
+class Silhouette2Model(nn.Module):
     n_comps = 45
     batch_size = 1
 
@@ -81,65 +154,6 @@ class Model(nn.Module):
             torch.from_numpy(np.array([3.0, 6.9, +2.5], dtype=np.float32)).to(self.device)
         )
 
-    def forward2(self):
-        batch_size = 1
-        rh_output = self.rh_model(
-            betas=self.betas,
-            global_orient=self.global_orient,
-            hand_pose=self.pose,
-            transl=self.transl,
-            return_verts=True,
-            return_tips=True,
-        )
-        verts_rgb = torch.ones_like(rh_output.vertices)  # (B, V, 3)
-        textures = TexturesVertex(verts_features=verts_rgb.to(self.device))
-        # Coordinate transformation from FreiHand to PyTorch3D for rendering
-        # [FreiHand] +X: right, +Y: down, +Z: in
-        # [PyTorch3D] +X: left, +Y: up, +Z: in
-        coordinate_transform = torch.tensor([[-1, -1, 1]]).to(self.device)
-        mesh_faces = torch.tensor(self.rh_model.faces.astype(int)).to(self.device)
-        hand_meshes = Meshes(
-            verts=[rh_output.vertices[i] * coordinate_transform for i in range(batch_size)],
-            faces=[mesh_faces for i in range(batch_size)],
-            textures=textures,
-        )
-
-        # output = self.rh_model(
-        #     betas=self.betas,
-        #     global_orient=self.global_orient,
-        #     hand_pose=self.pose,
-        #     transl=self.transl,
-        #     return_verts=True,
-        #     return_tips=True,
-        # )
-        # coordinate_transform = torch.tensor([[-1, -1, 1]])
-        # mesh_faces = torch.tensor(self.rh_model.faces.astype(int))
-        # # verts = output.vertices[0] * coordinate_transform
-        # hand_meshes = Meshes(
-        #     verts=[output.vertices[i] * coordinate_transform for i in range(batch_size)],
-        #     faces=[mesh_faces for i in range(batch_size)],
-        #     # verts=[rh_output.vertices[0]],
-        #     # faces=[mesh_faces],
-        #     # textures=textures,
-        # )
-
-        # Render the image using the updated camera position. Based on the new position of the
-        # camera we calculate the rotation and translation matrices
-        distance = 1.55  # distance from camera to the object
-        elevation = 120.0  # angle of elevation in degrees
-        azimuth = 120.0  # No rotation so the camera is positioned on the +Z axis.
-
-        # Get the position of the camera based on the spherical angles
-        R, T = look_at_view_transform(distance, elevation, azimuth, device=self.device)
-        # R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
-        # T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
-
-        image = self.renderer(meshes_world=self.meshes.clone(), R=R, T=T)
-
-        # Calculate the silhouette loss
-        # loss = torch.sum((image[..., 3] - self.mask) ** 2)
-        return hand_meshes, image
-
     def forward(self, focal_lens):
         # Initialize a perspective camera
         # fx = fx_screen * 2.0 / image_width
@@ -184,14 +198,11 @@ class Model(nn.Module):
             textures=textures,
         )
 
-        distance = 1.55  # distance from camera to the object
-        elevation = 0.0  # angle of elevation in degrees
-        azimuth = 0.0  # No rotation so the camera is positioned on the +Z axis.
-        # Get the position of the camera based on the spherical angles
-        R, T = look_at_view_transform(distance, elevation, azimuth, device=self.device)
         # Render the meshes
-        # R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
-        # T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
+        R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
+        T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]
+        image = self.renderer(meshes_world=self.meshes.clone(), R=R, T=T)
+
         silhouettes = self.silhouette_renderer(meshes_world=hand_meshes, R=R, T=T)
         silhouettes = silhouettes[..., 3]
 

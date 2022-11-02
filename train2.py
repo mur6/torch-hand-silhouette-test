@@ -9,7 +9,7 @@ import torch.optim as optim
 from tqdm import tqdm
 
 from src.loss import vertices_criterion
-from src.model import Model
+from src.model import HandModel, SimpleSilhouetteModel
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
 from src.utils.mano_util import make_random_mano_model
@@ -57,20 +57,21 @@ def main(args):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
-    model = Model(device, renderer=silhouette_renderer)
-    model.train()
+    hand_model = HandModel(device)
+    # ss_model = SimpleSilhouetteModel(device, silhouette_renderer)
+    hand_model.train()
 
-    focal_lens = data["focal_len"].unsqueeze(0)
-    pred = model(focal_lens)
-    pred_vertices = pred["vertices"]
+    # focal_lens = data["focal_len"].unsqueeze(0)
+    hand_pred_data = hand_model()
+    pred_vertices = hand_pred_data["vertices"]
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
-    optimizer = optim.Adam(model.parameters(), lr=0.4)
+    optimizer = optim.Adam(hand_model.parameters(), lr=0.4)
 
     loop = tqdm(range(args.num_epochs))
     for epoch in loop:
         optimizer.zero_grad()
-        pred = model(focal_lens)
-        pred_vertices = pred["vertices"] / 100.0
+        hand_pred_data = hand_model()
+        pred_vertices = hand_pred_data["vertices"]
         loss = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss.backward()
         optimizer.step()
@@ -93,6 +94,14 @@ def main(args):
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     ax.scatter(pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2], marker="o")
+    X, Y, Z = pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2]
+    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
+    mid_x = (X.max() + X.min()) * 0.5
+    mid_y = (Y.max() + Y.min()) * 0.5
+    mid_z = (Z.max() + Z.min()) * 0.5
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
     plt.show()
 
 
