@@ -54,7 +54,6 @@ def main(args):
     k_matrix = data["K_matrix"]
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    print("vertices: ", vertices.mean())
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
@@ -65,7 +64,6 @@ def main(args):
     pred = model(focal_lens)
     pred_vertices = pred["vertices"]
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
-    print("pred vertices: ", pred_vertices.mean())
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
     loop = tqdm(range(args.num_epochs))
@@ -91,7 +89,7 @@ def main(args):
         pred_vertices=None,
     )
     pred_v3d = pred_vertices.squeeze(0).detach().numpy()
-    print(pred_v3d.shape, pred_v3d)
+    # print(pred_v3d.shape, pred_v3d)
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     ax.scatter(pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2], marker="o")
