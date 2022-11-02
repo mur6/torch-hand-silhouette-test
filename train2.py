@@ -11,8 +11,15 @@ from tqdm import tqdm
 from src.loss import ContourLoss, criterion
 from src.model import Model
 from src.utils.data import get_dataset
+from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, show_data
 from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
+
+
+def main_2(args):
+    d = FreiHAND(args.data_path)[46]
+    vertices = d["vertices"] * RAW_IMG_SIZE
+    show_data(d["image_raw"], vertices)
 
 
 def main(args):
@@ -20,24 +27,7 @@ def main(args):
     data_path = "../my-mask2hand/data/freihand/"
     orig_image, image, focal_len, image_ref, label, dist_map, mesh = get_dataset(data_path)[46]
     im_rgb, mask, dist_map = load_image(Path("../my-mask2hand/data/freihand/evaluation/"), number=46)
-    # model = HandSilhouetteNet3(mano_model_path="./models/MANO_RIGHT.pkl", num_pca_comps=args.num_pcs, device=device)
-    # model.to(device)
-    # optimizer = optim.Adam(model.parameters(), lr=args.init_lr)
-    # a = dataset_train[0]
 
-    # def visualize(image, silhouettes, mask):
-
-    # joints = label
-    # vertices = mesh
-
-    # print(joints.shape)
-    # print(vertices.shape)
-    # print(vertices[0])
-    # vertices2 = get_mano_verts()
-    # print(vertices2.shape)
-    # print(vertices2[0])
-
-    #   def train():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
