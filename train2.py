@@ -1,5 +1,6 @@
 import argparse
 import random
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +11,7 @@ from tqdm import tqdm
 from src.loss import ContourLoss, criterion
 from src.model import Model
 from src.utils.data import get_dataset
+from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
 
 
@@ -17,6 +19,7 @@ def main(args):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     data_path = "../my-mask2hand/data/freihand/"
     orig_image, image, focal_len, image_ref, label, dist_map, mesh = get_dataset(data_path)[46]
+    im_rgb, mask, dist_map = load_image(Path("../my-mask2hand/data/freihand/evaluation/"), number=46)
     # model = HandSilhouetteNet3(mano_model_path="./models/MANO_RIGHT.pkl", num_pca_comps=args.num_pcs, device=device)
     # model.to(device)
     # optimizer = optim.Adam(model.parameters(), lr=args.init_lr)
@@ -63,46 +66,19 @@ def main(args):
     pred_silhouettes = d["silhouettes"]
     pred_vertices = d["vertices"]
 
-    if False:
-        fig, axs = plt.subplots(2, 2)
-        axs = axs.flatten()
-        axs[0].set_title("im_rgb")
-        axs[0].imshow(im_rgb[0].permute(1, 2, 0).detach().numpy())
-        axs[1].set_title("mask")
-        axs[1].imshow(mask[0].detach().numpy())
-        axs[2].set_title("grey image")
-        axs[2].imshow(orig_image)
-        axs[3].set_title("pred silhouettes")
-        axs[3].imshow(pred_silhouettes[0].detach().numpy())
-        # axs[3].set_title("dist_map")
-        # axs[3].imshow(dist_map.detach().numpy())
-        plt.show()
-        return
-    print(pred_vertices.shape)
-    contour_loss = ContourLoss(device=device)
-    optimizer = optim.Adam(model.parameters(), lr=0.4)
-    loop = tqdm(range(50))
-    for epoch in loop:
-        optimizer.zero_grad()
-        d = model(focal_lens)
-        pred_silhouettes = d["silhouettes"]
-        pred_vertices = d["vertices"]
-        loss = criterion(contour_loss, mask, mesh.unsqueeze(0), pred_silhouettes, pred_vertices)
-        loss.backward()
-        optimizer.step()
-        print(f"[Epoch {epoch}] Training Loss: {loss}")
-    if True:
-        fig, axs = plt.subplots(2, 2)
-        axs = axs.flatten()
-        axs[0].set_title("im_rgb")
-        axs[0].imshow(im_rgb[0].permute(1, 2, 0).detach().numpy())
-        axs[1].set_title("mask")
-        axs[1].imshow(mask[0].detach().numpy())
-        axs[2].set_title("grey image")
-        axs[2].imshow(orig_image)
-        axs[3].set_title("pred silhouettes")
-        axs[3].imshow(pred_silhouettes[0].detach().numpy())
-        plt.show()
+    fig, axs = plt.subplots(2, 2)
+    axs = axs.flatten()
+    axs[0].set_title("im_rgb")
+    axs[0].imshow(im_rgb[0].permute(1, 2, 0).detach().numpy())
+    axs[1].set_title("mask")
+    axs[1].imshow(mask[0].detach().numpy())
+    axs[2].set_title("grey image")
+    axs[2].imshow(orig_image)
+    axs[3].set_title("pred silhouettes")
+    axs[3].imshow(pred_silhouettes[0].detach().numpy())
+    # axs[3].set_title("dist_map")
+    # axs[3].imshow(dist_map.detach().numpy())
+    plt.show()
 
 
 if __name__ == "__main__":
