@@ -48,6 +48,23 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
     plt.show()
 
 
+def show_3d_plot(points3d):
+    points3d = points3d.squeeze(0).detach().numpy()
+    # print(pred_v3d.shape, pred_v3d)
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
+    ax.scatter(X, Y, Z, marker="o")
+    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
+    mid_x = (X.max() + X.min()) * 0.5
+    mid_y = (Y.max() + Y.min()) * 0.5
+    mid_z = (Z.max() + Z.min()) * 0.5
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    plt.show()
+
+
 def main(args):
     data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
@@ -90,19 +107,7 @@ def main(args):
         pred_vertices=None,
     )
     pred_v3d = pred_vertices.squeeze(0).detach().numpy()
-    # print(pred_v3d.shape, pred_v3d)
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax.scatter(pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2], marker="o")
-    X, Y, Z = pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2]
-    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
-    mid_x = (X.max() + X.min()) * 0.5
-    mid_y = (Y.max() + Y.min()) * 0.5
-    mid_z = (Z.max() + Z.min()) * 0.5
-    ax.set_xlim(mid_x - max_range, mid_x + max_range)
-    ax.set_ylim(mid_y - max_range, mid_y + max_range)
-    ax.set_zlim(mid_z - max_range, mid_z + max_range)
-    plt.show()
+    show_3d_plot(pred_v3d)
 
 
 if __name__ == "__main__":
