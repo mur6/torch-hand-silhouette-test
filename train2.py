@@ -90,7 +90,7 @@ def main(args):
         loss = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss.backward()
         optimizer.step()
-        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
+        # tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
 
