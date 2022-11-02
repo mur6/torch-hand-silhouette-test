@@ -71,7 +71,7 @@ class ContourLoss(nn.Module):
         return dist
 
 
-def criterion(contour_loss, mask, vertices, pred_mask, pred_vertices):
+def criterion_for_both(contour_loss, mask, vertices, pred_mask, pred_vertices):
     print(f"mask: {mask.shape}")
     print(torch.max(mask), torch.min(mask))
     # print(f"vertices: {vertices.shape}")
@@ -83,3 +83,11 @@ def criterion(contour_loss, mask, vertices, pred_mask, pred_vertices):
     # loss2 = contour_loss(mask, pred_mask)
     print(loss1, loss2)
     return loss1 + loss2
+
+
+def vertices_criterion(vertices, pred_vertices):
+    # print(torch.max(pred_mask), torch.min(pred_mask))
+    # print()
+    # print(f"pred_vertices: {pred_vertices.shape}")
+    loss1 = aligned_meshes_loss(vertices, pred_vertices)
+    return loss1

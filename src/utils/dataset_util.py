@@ -40,7 +40,7 @@ class FreiHAND(Dataset):
         # self.image_names = np.sort(os.listdir(self.image_dir))
         fn_K_matrix = base_path / "evaluation_K.json"
         with open(fn_K_matrix, "r") as f:
-            self.K_matrix = np.array(json.load(f))
+            self.K_matrix = np.array(json.load(f)).tolist()
 
         fn_anno = base_path / "evaluation_xyz.json"
         with open(fn_anno, "r") as f:
@@ -84,18 +84,22 @@ class FreiHAND(Dataset):
         keypoints = torch.from_numpy(keypoints)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
         print("center:", np.mean(self.vertices[idx], 0))
-        vertices = projectPoints(self.vertices[idx], self.K_matrix[idx])
-        vertices = vertices / RAW_IMG_SIZE
-        vertices = torch.from_numpy(vertices)
+        vertices = torch.from_numpy(self.vertices[idx])
+        vertices = torch.tensor(self.vertices[idx], dtype=torch.float32)
+        vertices2d = projectPoints(self.vertices[idx], self.K_matrix[idx])
+        vertices2d = torch.from_numpy(vertices2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
+        focal_len = torch.tensor([self.K_matrix[idx][0][0], self.K_matrix[idx][1][1]])
 
         return {
             "image": image,
             "keypoints": keypoints,
             "vertices": vertices,
+            "vertices2d": vertices2d,
             "image_name": image_name,
             "image_raw": image_raw,
             "mask": torch.from_numpy(mask),
+            "focal_len": focal_len,
         }
 
 
