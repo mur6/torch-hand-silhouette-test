@@ -16,7 +16,9 @@ from src.utils.image import load_image
 from src.utils.render import make_silhouette_phong_renderer
 
 
-def show_images(image_raw, image, mask, vertices):
+def show_images(image_raw, image, mask, vertices, pred_vertices):
+    print("vertices: ", vertices.shape)
+    print("pred_vertices: ", pred_vertices.shape)
     # image = image_raw.numpy()
     # image = np.moveaxis(image, 0, -1)
 
@@ -54,10 +56,10 @@ def main_2(args):
 
 def main(args):
     data = FreiHAND(args.data_path)[46]
-    vertices = data["vertices"] * RAW_IMG_SIZE
+    vertices = data["vertices"]
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    # show_images(d["image_raw"], d["image"], d["mask"], vertices=vertices)
+    #
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
@@ -70,17 +72,24 @@ def main(args):
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
-    loop = tqdm(range(250))
+    loop = tqdm(range(50))
     for epoch in loop:
         optimizer.zero_grad()
         pred = model(focal_lens)
-        pred_vertices = pred["vertices"]
+        pred_vertices = pred["vertices"] / 100.0
         loss = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss.backward()
         optimizer.step()
-        # print(f"[Epoch {epoch}] Training Loss: {loss}")
+        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+    show_images(
+        data["image_raw"],
+        data["image"],
+        data["mask"],
+        vertices=data["vertices2d"] * RAW_IMG_SIZE,
+        pred_vertices=pred_vertices.squeeze(0),
+    )
 
 
 if __name__ == "__main__":
