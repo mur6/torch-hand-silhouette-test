@@ -59,7 +59,7 @@ def main_2(args):
 
 
 def main(args):
-    data = FreiHAND(args.data_path)[45]
+    data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
     k_matrix = data["K_matrix"]
 
@@ -78,7 +78,7 @@ def main(args):
     print("pred vertices: ", pred_vertices.mean())
     optimizer = optim.Adam(model.parameters(), lr=0.4)
 
-    loop = tqdm(range(100))
+    loop = tqdm(range(args.num_epochs))
     for epoch in loop:
         optimizer.zero_grad()
         pred = model(focal_lens)
@@ -106,9 +106,6 @@ def main(args):
     ax = fig.add_subplot(projection="3d")
     ax.scatter(pred_v3d[:, 0], pred_v3d[:, 1], pred_v3d[:, 2], marker="o")
     plt.show()
-
-
-from mpl_toolkits.mplot3d import Axes3D
 
 
 def main_3(args):
@@ -150,9 +147,9 @@ if __name__ == "__main__":
     random.seed(0)
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=Path, default="./data/freihand/")
-    parser.add_argument("--checkpoint_path", type=str, default="./checkpoint")
+    parser.add_argument("--data_number", type=int)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--num_epochs", type=int, default=150)
+    parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--init_lr", type=float, default=1e-4)
     parser.add_argument("--num_pcs", type=int, default=45, help="number of pose PCs (ex: 6, 45)")
     parser.add_argument("--resume", action="store_true")
