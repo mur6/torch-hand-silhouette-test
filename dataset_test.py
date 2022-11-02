@@ -36,13 +36,8 @@ def show_data(image_raw, keypoints):
 
 
 def main(data_path):
-    print(data_path)
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    ds = FreiHAND(data_path, device)
-    d = ds[46]
+    d = FreiHAND(data_path)[46]
     vertices = d["vertices"] * RAW_IMG_SIZE
-    # print(vertices)
-    keypoints = d["keypoints"] * RAW_IMG_SIZE
     show_data(d["image_raw"], vertices)
 
 

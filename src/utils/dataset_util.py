@@ -32,8 +32,7 @@ class FreiHAND(Dataset):
     https://lmb.informatik.uni-freiburg.de/resources/datasets/FreihandDataset.en.html
     """
 
-    def __init__(self, base_path, device):
-        self.device = device
+    def __init__(self, base_path):
         self.image_dir = base_path / "evaluation" / "rgb"
         # self.image_names = np.sort(os.listdir(self.image_dir))
         fn_K_matrix = base_path / "evaluation_K.json"
