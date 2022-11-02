@@ -48,16 +48,6 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
     plt.show()
 
 
-def main_2(args):
-    d = FreiHAND(args.data_path)[46]
-    vertices = d["vertices"] * RAW_IMG_SIZE
-    # show_data(d["image_raw"], vertices)
-    orig_image, image, focal_len, image_ref, label, dist_map, mesh = get_dataset(args.data_path)[46]
-    # print(focal_len)
-    show_images(d["image_raw"], d["image"], d["mask"], vertices=vertices)
-    # print(d["focal_len"])
-
-
 def main(args):
     data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
