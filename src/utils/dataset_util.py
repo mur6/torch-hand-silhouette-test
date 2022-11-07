@@ -79,9 +79,8 @@ class FreiHAND(Dataset):
         mask = cv2.imread(str(mask_name), cv2.IMREAD_GRAYSCALE)
         mask = np.where(mask == 0, 0, 1)
 
-        keypoints = projectPoints(self.anno[idx], self.K_matrix[idx])
-        keypoints = keypoints / RAW_IMG_SIZE
-        keypoints = torch.from_numpy(keypoints)
+        keypoints2d = projectPoints(self.anno[idx], self.K_matrix[idx])
+        keypoints2d = torch.from_numpy(keypoints2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
         print("center:", np.mean(self.vertices[idx], 0))
         vertices = torch.from_numpy(self.vertices[idx])
@@ -93,7 +92,7 @@ class FreiHAND(Dataset):
         print("K_matrix:", self.K_matrix[idx])
         return {
             "image": image,
-            "keypoints": keypoints,
+            "keypoints2d": keypoints2d,
             "vertices": vertices,
             "vertices2d": vertices2d,
             "image_name": image_name,
@@ -104,28 +103,24 @@ class FreiHAND(Dataset):
         }
 
 
-def show_data(image_raw, keypoints):
-    """
-    Function to visualize data
-    Input: torch.utils.data.Dataset
-    """
-    # n_cols = 4
-    # n_rows = int(np.ceil(n_samples / n_cols))
-    # plt.figure(figsize=[15, n_rows * 4])
+def show_data(image_raw, *, vertices=None, keypoints=None):
+    nrows, ncols = 1, 2
+    fig, axs = plt.subplots(nrows, ncols)
+    axs = axs.flatten()
+    label_and_points = (
+        ("vertices", vertices),
+        ("keypoints", keypoints),
+    )
+    for index, (label, points) in zip(range(nrows * ncols), label_and_points):
+        axs[index].set_title(label)
+        axs[index].imshow(image_raw.permute(1, 2, 0).detach().numpy())
+        # axs[index].imshow(image.points().numpy())
+        axs[index].scatter(points[:, 0], points[:, 1], c="red", alpha=0.2)
 
-    image = image_raw.numpy()
-    image = np.moveaxis(image, 0, -1)
-    # keypoints = sample["keypoints"].numpy()
-    # keypoints = keypoints * RAW_IMG_SIZE
+    # image = image_raw.numpy()
+    # image = np.moveaxis(image, 0, -1)
+    # plt.imshow(image)
+    # plt.scatter(keypoints[:, 0], keypoints[:, 1], c="k", alpha=0.5)
 
-    # plt.subplot(n_rows, n_cols, i)
-    plt.imshow(image)
-    plt.scatter(keypoints[:, 0], keypoints[:, 1], c="k", alpha=0.5)
-
-    #     plt.plot(
-    #         keypoints[params["ids"], 0],
-    #         keypoints[params["ids"], 1],
-    #         params["color"],
-    #     )
     plt.tight_layout()
     plt.show()
