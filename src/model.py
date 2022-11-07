@@ -86,13 +86,31 @@ class HandModel(nn.Module):
             faces=[mesh_faces for i in range(batch_size)],
             textures=textures,
         )
-        joints2d = orthographic_projection(rh_output_joints.contiguous(), camera_params.contiguous())
+        # print(f"X: {rh_output_joints.shape}")
+        # print(f"camera: {camera_params.shape}")
+        joints2d = projectPoints(rh_output_joints.squeeze(0), camera_params)
         return {
             "torch3d_meshes": torch3d_meshes,
             "vertices": rh_output.vertices,
             "joints": rh_output_joints,
             "joints2d": joints2d,
         }
+
+
+def projectPoints(X, camera):
+    """
+    Projects 3D coordinates into image space.
+    Function taken from https://github.com/lmb-freiburg/freihand
+    """
+    # print(f"x.shape: {X.shape}")
+    X = X.permute(1, 0)  # torch.transpose(X, 0, 1)
+    # print(f"x.shape: {X.shape}")
+    uv = torch.matmul(camera, X).permute(1, 0)
+    # print(f"uv.shape: {uv.shape}")
+    ret = uv[:, :2] / uv[:, -1:]
+    # print(f"ret.shape: {ret.shape}")
+    # print(ret)
+    return ret
 
 
 def orthographic_projection(X, camera):

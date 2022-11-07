@@ -8,25 +8,9 @@ import numpy as np
 import torch
 import torch.optim as optim
 from pytorch3d.io import load_obj, load_objs_as_meshes
-from pytorch3d.renderer import (
-    DirectionalLights,
-    FoVPerspectiveCameras,
-    Materials,
-    MeshRasterizer,
-    MeshRenderer,
-    PointLights,
-    RasterizationSettings,
-    SoftPhongShader,
-    TexturesUV,
-    TexturesVertex,
-    look_at_view_transform,
-)
-from pytorch3d.structures import Meshes
-from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
-from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from tqdm import tqdm
 
-from src.loss import keypoints_criterion, vertices_criterion
+from src.loss import keypoints_2d_criterion, keypoints_criterion, vertices_criterion
 from src.model import HandModel, SimpleSilhouetteModel
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
@@ -35,14 +19,10 @@ from src.utils.render import make_silhouette_phong_renderer
 
 
 def show_images(image_raw, image, mask, vertices, pred_vertices):
-    print("vertices: ", vertices.shape)
-    if pred_vertices is not None:
-        print("pred_vertices: ", pred_vertices.shape)
-    # image = image_raw.numpy()
-    # image = np.moveaxis(image, 0, -1)
+    # print("vertices: ", vertices.shape)
+    # if pred_vertices is not None:
+    #     print("pred_vertices: ", pred_vertices.shape)
 
-    # plt.imshow(image)
-    # plt.scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.5)
     nrows, ncols = 2, 2
     fig, axs = plt.subplots(nrows, ncols)
     axs = axs.flatten()
@@ -88,8 +68,8 @@ def main(args):
     vertices = data["vertices"]
     keypoints = data["keypoints"]
     keypoints2d = data["keypoints2d"]
-    camera_params = data["K_matrix"].unsqueeze(0)
-    # print(camera_params)
+    camera_params = data["K_matrix"]
+    print(keypoints2d)
     # mask = torch.tensor(data["mask"], dtype=torch.float32).unsqueeze(0)
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
@@ -122,13 +102,14 @@ def main(args):
         pred_2d_joints = hand_pred_data["joints2d"]
         loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
-        # loss3 = torch.sum((keypoints2d - pred_2d_joints) ** 2) * 1e-7
-        loss = loss1 + loss2
+        loss3 = 2e-10 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
+        loss = loss1 + loss2 + loss3
         loss.backward()
         optimizer.step()
         tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
-    print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+    # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
+    print("pred_vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+    print("pred_2d_joints: ", pred_2d_joints.shape, pred_2d_joints.dtype, pred_2d_joints[0][0])
 
     # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
     # print("pred_v2d: ", pred_v2d.shape)
@@ -139,7 +120,7 @@ def main(args):
             data["image"],
             data["mask"],
             vertices=data["vertices2d"] * RAW_IMG_SIZE,
-            pred_vertices=pred_vertices.squeeze(0).detach().numpy(),
+            pred_vertices=pred_2d_joints.squeeze(0).detach().numpy(),
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
