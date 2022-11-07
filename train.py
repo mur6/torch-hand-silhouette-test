@@ -26,7 +26,7 @@ from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_sce
 from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from tqdm import tqdm
 
-from src.loss import vertices_criterion
+from src.loss import keypoints_criterion, vertices_criterion
 from src.model import HandModel, SimpleSilhouetteModel
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
@@ -86,10 +86,12 @@ def show_3d_plot(points3d):
 def main(args):
     data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
+    keypoints = data["keypoints"]
     mask = torch.tensor(data["mask"], dtype=torch.float32).unsqueeze(0)
     # print(data["K_matrix"])
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
+    print("keypoints: ", keypoints.shape, keypoints.dtype)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
@@ -99,18 +101,22 @@ def main(args):
     # focal_lens = data["focal_len"].unsqueeze(0)
     hand_pred_data = hand_model()
     pred_vertices = hand_pred_data["vertices"]
+    pred_joints = hand_pred_data["joints"]
+    print("pred_joints: ", pred_joints.shape, pred_joints.dtype, pred_joints[0][0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
     optimizer = optim.Adam(hand_model.parameters(), lr=0.4)
-
     loop = tqdm(range(args.num_epochs))
     for epoch in loop:
         optimizer.zero_grad()
         hand_pred_data = hand_model()
         pred_vertices = hand_pred_data["vertices"]
-        loss = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
+        pred_joints = hand_pred_data["joints"]
+        loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
+        loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
+        loss = loss1 + loss2
         loss.backward()
         optimizer.step()
-        # tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
+        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
 
@@ -123,10 +129,12 @@ def main(args):
             data["image"],
             data["mask"],
             vertices=data["vertices2d"] * RAW_IMG_SIZE,
-            pred_vertices=None,
+            pred_vertices=pred_vertices.squeeze(0).detach().numpy(),
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
+        pred_joints = pred_joints.squeeze(0).detach().numpy()
+        show_3d_plot(pred_joints)
 
     pred_meshes = hand_pred_data["torch3d_meshes"]
     pred_meshes = pred_meshes.detach()
@@ -143,40 +151,6 @@ def main(args):
         # texturesuv_image_matplotlib(mesh.textures, subsample=None)
         # plt.axis("off")
         # plt.show()
-
-    ss_model = SimpleSilhouetteModel(device, silhouette_renderer, pred_meshes.detach())
-    ss_model.train()
-
-    # focal_lens = data["focal_len"].unsqueeze(0)
-    im = ss_model()
-    silhouette_image = im[..., 3]
-    # silhouette_image = (im[..., 3] > 0.01).float()
-    plt.figure(figsize=(7, 7))
-    plt.imshow(silhouette_image[0].detach().numpy())
-    plt.axis("off")
-    plt.show()
-
-    print("pred silhouette_image: ", silhouette_image.shape, silhouette_image.dtype)
-    print("mask: ", mask.shape, mask.dtype)
-    optimizer = optim.Adam(ss_model.parameters(), lr=0.25)
-
-    loop = tqdm(range(100))
-    for epoch in loop:
-        optimizer.zero_grad()
-        im = ss_model()
-        silhouette_image = im[..., 3]
-        # silhouette_image = (im[..., 3] > 0.01).float()
-        loss = torch.sum((silhouette_image - mask) ** 2)
-        loss.backward()
-        optimizer.step()
-        print(ss_model.camera_position)
-        print("angles: ", ss_model.angles)
-        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
-
-    plt.figure(figsize=(7, 7))
-    plt.imshow(silhouette_image[0].detach().numpy())
-    plt.axis("off")
-    plt.show()
 
 
 if __name__ == "__main__":

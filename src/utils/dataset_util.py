@@ -79,11 +79,13 @@ class FreiHAND(Dataset):
         mask = cv2.imread(str(mask_name), cv2.IMREAD_GRAYSCALE)
         mask = np.where(mask == 0, 0, 1)
 
+        # keypoints = torch.from_numpy(self.anno[idx])
+        keypoints = torch.tensor(self.anno[idx], dtype=torch.float32)
         keypoints2d = projectPoints(self.anno[idx], self.K_matrix[idx])
         keypoints2d = torch.from_numpy(keypoints2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
         print("center:", np.mean(self.vertices[idx], 0))
-        vertices = torch.from_numpy(self.vertices[idx])
+        # vertices = torch.from_numpy(self.vertices[idx])
         vertices = torch.tensor(self.vertices[idx], dtype=torch.float32)
         vertices2d = projectPoints(self.vertices[idx], self.K_matrix[idx])
         vertices2d = torch.from_numpy(vertices2d / RAW_IMG_SIZE)
@@ -92,6 +94,7 @@ class FreiHAND(Dataset):
         print("K_matrix:", self.K_matrix[idx])
         return {
             "image": image,
+            "keypoints": keypoints,
             "keypoints2d": keypoints2d,
             "vertices": vertices,
             "vertices2d": vertices2d,

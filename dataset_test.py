@@ -8,6 +8,8 @@ def main(data_path):
     d = FreiHAND(data_path)[46]
     vertices2d = d["vertices2d"] * RAW_IMG_SIZE
     keypoints2d = d["keypoints2d"] * RAW_IMG_SIZE
+    label = d["keypoints"]
+    print(f"label: {label}")
     show_data(d["image_raw"], vertices=vertices2d, keypoints=keypoints2d)
 
 

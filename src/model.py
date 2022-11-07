@@ -78,13 +78,19 @@ class HandModel(nn.Module):
         max_val = torch.max(centered_vertices.max(), abs_min)
         centered_vertices = centered_vertices / max_val
         # print("補正されたvertices: ", centered_vertices)
+        reorder = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]
+        rh_output_joints = rh_output.joints[:, reorder, :]
 
         torch3d_meshes = Meshes(
             verts=[centered_vertices[i] * coordinate_transform for i in range(batch_size)],
             faces=[mesh_faces for i in range(batch_size)],
             textures=textures,
         )
-        return {"torch3d_meshes": torch3d_meshes, "vertices": rh_output.vertices}
+        return {
+            "torch3d_meshes": torch3d_meshes,
+            "vertices": rh_output.vertices,
+            "joints": rh_output_joints,
+        }
 
 
 class SimpleSilhouetteModel(nn.Module):

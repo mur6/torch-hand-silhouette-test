@@ -28,6 +28,7 @@ def get_mano_verts():
     coordinate_transform = torch.tensor([[-1, -1, 1]])
     # mesh_faces = torch.tensor(rh_model.faces.astype(int))
     verts = output.vertices[0] * coordinate_transform
+    output.joints
     # faces = [mesh_faces for i in range(batch_size)]
     return verts
 

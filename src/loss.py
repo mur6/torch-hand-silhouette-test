@@ -35,6 +35,11 @@ def aligned_meshes_loss(meshes_gt, meshes_pred):
     return nn.L1Loss()(meshes_pred_aligned, meshes_gt)
 
 
+def aligned_joints_loss(joints_gt, joints_pred):
+    joints_pred_aligned = batch_align_w_scale(joints_gt, joints_pred)
+    return nn.MSELoss()(joints_pred_aligned, joints_gt)
+
+
 class ContourLoss(nn.Module):
     def __init__(self, device):
         super(ContourLoss, self).__init__()
@@ -91,3 +96,15 @@ def vertices_criterion(vertices, pred_vertices):
     # print(f"pred_vertices: {pred_vertices.shape}")
     loss1 = aligned_meshes_loss(vertices, pred_vertices)
     return loss1
+
+
+def keypoints_criterion(*, labels, pred_joints):
+    mse_loss = nn.MSELoss()
+    # l1_loss = nn.L1Loss()
+    # return 0.1 * mse_loss(pred_joints, labels) + 1.0 * aligned_joints_loss(labels, pred_joints)
+    return aligned_joints_loss(labels, pred_joints)
+
+
+# + 0.1 * l1_loss(outputs['refined_vertices'], meshes) \
+# + aligned_meshes_loss(meshes, outputs['refined_vertices']) \
+# + 1e-4 * contour_loss(outputs['silhouettes'], dist_maps)
