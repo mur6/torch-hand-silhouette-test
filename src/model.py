@@ -48,7 +48,7 @@ class HandModel(nn.Module):
         self.global_orient = nn.Parameter(global_orient.to(self.device))
         self.transl = nn.Parameter(transl.to(self.device))
 
-    def forward(self):
+    def forward(self, camera_params):
         # Global orient & pose PCAs to 3D hand joints & reconstructed silhouette
         rh_output = self.rh_model(
             betas=self.betas,
@@ -86,11 +86,28 @@ class HandModel(nn.Module):
             faces=[mesh_faces for i in range(batch_size)],
             textures=textures,
         )
+        joints2d = orthographic_projection(rh_output_joints.contiguous(), camera_params.contiguous())
         return {
             "torch3d_meshes": torch3d_meshes,
             "vertices": rh_output.vertices,
             "joints": rh_output_joints,
+            "joints2d": joints2d,
         }
+
+
+def orthographic_projection(X, camera):
+    """Perform orthographic projection of 3D points X using the camera parameters
+    Args:
+        X: size = [B, N, 3]
+        camera: size = [B, 3]
+    Returns:
+        Projected 2D points -- size = [B, N, 2]
+    """
+    camera = camera.view(-1, 1, 3)
+    X_trans = X[:, :, :2] + camera[:, :, 1:]
+    shape = X_trans.shape
+    X_2d = (camera[:, :, 0] * X_trans.view(shape[0], -1)).view(shape)
+    return X_2d
 
 
 class SimpleSilhouetteModel(nn.Module):

@@ -99,7 +99,7 @@ def vertices_criterion(vertices, pred_vertices):
 
 
 def keypoints_criterion(*, labels, pred_joints):
-    mse_loss = nn.MSELoss()
+    # mse_loss = nn.MSELoss()
     # l1_loss = nn.L1Loss()
     # return 0.1 * mse_loss(pred_joints, labels) + 1.0 * aligned_joints_loss(labels, pred_joints)
     return aligned_joints_loss(labels, pred_joints)
