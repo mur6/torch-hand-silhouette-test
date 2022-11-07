@@ -1,4 +1,5 @@
 import argparse
+import pickle
 import random
 from pathlib import Path
 
@@ -6,6 +7,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
+from pytorch3d.io import load_obj, load_objs_as_meshes
+from pytorch3d.renderer import (
+    DirectionalLights,
+    FoVPerspectiveCameras,
+    Materials,
+    MeshRasterizer,
+    MeshRenderer,
+    PointLights,
+    RasterizationSettings,
+    SoftPhongShader,
+    TexturesUV,
+    TexturesVertex,
+    look_at_view_transform,
+)
+from pytorch3d.structures import Meshes
+from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
+from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
 from tqdm import tqdm
 
 from src.loss import vertices_criterion
@@ -50,6 +68,7 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
 
 def show_3d_plot(points3d):
     # print(pred_v3d.shape, pred_v3d)
+    points3d /= 164.0
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
@@ -68,6 +87,7 @@ def main(args):
     data = FreiHAND(args.data_path)[args.data_number]
     vertices = data["vertices"]
     mask = torch.tensor(data["mask"], dtype=torch.float32).unsqueeze(0)
+    # print(data["K_matrix"])
 
     print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
 
@@ -107,27 +127,56 @@ def main(args):
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
+
     pred_meshes = hand_pred_data["torch3d_meshes"]
+    pred_meshes = pred_meshes.detach()
+    if args.save_mesh:
+        print(pred_meshes)
+        with open("torch3d_pred_meshes.pickle", "wb") as fh:
+            pickle.dump(pred_meshes, fh)
+        print("saved.")
+        # plt.figure(figsize=(7, 7))
+        # texture_image = mesh.textures.maps_padded()
+        # plt.imshow(texture_image.squeeze().cpu().numpy())
+        # plt.axis("off")
+        # plt.figure(figsize=(7, 7))
+        # texturesuv_image_matplotlib(mesh.textures, subsample=None)
+        # plt.axis("off")
+        # plt.show()
+
     ss_model = SimpleSilhouetteModel(device, silhouette_renderer, pred_meshes.detach())
     ss_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
     im = ss_model()
     silhouette_image = im[..., 3]
+    # silhouette_image = (im[..., 3] > 0.01).float()
+    plt.figure(figsize=(7, 7))
+    plt.imshow(silhouette_image[0].detach().numpy())
+    plt.axis("off")
+    plt.show()
 
     print("pred silhouette_image: ", silhouette_image.shape, silhouette_image.dtype)
     print("mask: ", mask.shape, mask.dtype)
-    optimizer = optim.Adam(ss_model.parameters(), lr=0.4)
+    optimizer = optim.Adam(ss_model.parameters(), lr=0.25)
 
-    loop = tqdm(range(args.num_epochs))
+    loop = tqdm(range(100))
     for epoch in loop:
         optimizer.zero_grad()
         im = ss_model()
         silhouette_image = im[..., 3]
+        # silhouette_image = (im[..., 3] > 0.01).float()
         loss = torch.sum((silhouette_image - mask) ** 2)
         loss.backward()
         optimizer.step()
+        print(ss_model.camera_position)
+        print("angles: ", ss_model.angles)
         tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
+
+    plt.figure(figsize=(7, 7))
+    plt.imshow(silhouette_image[0].detach().numpy())
+    plt.axis("off")
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -141,5 +190,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--init_lr", type=float, default=1e-4)
     parser.add_argument("--visualize", action="store_true")
+    parser.add_argument("--save_mesh", action="store_true")
     args = parser.parse_args()
     main(args)
