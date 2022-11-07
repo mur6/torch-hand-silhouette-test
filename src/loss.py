@@ -113,8 +113,8 @@ def keypoints_2d_criterion(*, labels, pred_joints):
     # return 0.1 * mse_loss(pred_joints, labels) + 1.0 * aligned_joints_loss(labels, pred_joints)
     # torch.sum((keypoints2d - pred_2d_joints) ** 2) * 1e-7
     # aligned_joints_loss(labels, pred_joints)
-    # mse_loss(pred_joints, labels)
-    return torch.sum((labels - pred_joints) ** 2)
+    return mse_loss(pred_joints, labels)
+    # torch.sum((labels - pred_joints) ** 2)
 
 
 # + 0.1 * l1_loss(outputs['refined_vertices'], meshes) \

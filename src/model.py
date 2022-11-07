@@ -47,8 +47,10 @@ class HandModel(nn.Module):
         self.pose = nn.Parameter(pose.to(self.device))
         self.global_orient = nn.Parameter(global_orient.to(self.device))
         self.transl = nn.Parameter(transl.to(self.device))
+        camera_params = torch.rand(self.batch_size, 3)
+        self.camera_params = nn.Parameter(camera_params.to(self.device))
 
-    def forward(self, camera_params):
+    def forward(self):
         # Global orient & pose PCAs to 3D hand joints & reconstructed silhouette
         rh_output = self.rh_model(
             betas=self.betas,
@@ -88,7 +90,8 @@ class HandModel(nn.Module):
         )
         # print(f"X: {rh_output_joints.shape}")
         # print(f"camera: {camera_params.shape}")
-        joints2d = projectPoints(rh_output_joints.squeeze(0), camera_params)
+        # joints2d = projectPoints(rh_output_joints.squeeze(0), camera_params)
+        joints2d = orthographic_projection(rh_output_joints, self.camera_params)
         return {
             "torch3d_meshes": torch3d_meshes,
             "vertices": rh_output.vertices,

@@ -82,7 +82,7 @@ def main(args):
     hand_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
-    hand_pred_data = hand_model(camera_params)
+    hand_pred_data = hand_model()
     print("######################################")
     pred_vertices = hand_pred_data["vertices"]
     pred_joints = hand_pred_data["joints"]
@@ -96,16 +96,17 @@ def main(args):
     loop = tqdm(range(args.num_epochs))
     for epoch in loop:
         optimizer.zero_grad()
-        hand_pred_data = hand_model(camera_params)
+        hand_pred_data = hand_model()
         pred_vertices = hand_pred_data["vertices"]
         pred_joints = hand_pred_data["joints"]
         pred_2d_joints = hand_pred_data["joints2d"]
         loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
-        loss3 = 2e-10 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
+        loss3 = 1e-2 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
         loss = loss1 + loss2 + loss3
         loss.backward()
         optimizer.step()
+        tqdm.write(f"[Epoch {epoch}] Training loss3: {loss3}")
         tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred_vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
@@ -120,7 +121,7 @@ def main(args):
             data["image"],
             data["mask"],
             vertices=data["vertices2d"] * RAW_IMG_SIZE,
-            pred_vertices=pred_2d_joints.squeeze(0).detach().numpy(),
+            pred_vertices=(pred_2d_joints * RAW_IMG_SIZE).squeeze(0).detach().numpy(),
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
