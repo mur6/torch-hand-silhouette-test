@@ -1,3 +1,4 @@
+from math import radians
 from pathlib import Path
 
 import numpy as np
@@ -13,8 +14,10 @@ from pytorch3d.renderer import (
     TexturesVertex,
     look_at_rotation,
     look_at_view_transform,
+    rotate_on_spot,
 )
 from pytorch3d.structures import Meshes
+from pytorch3d.transforms import axis_angle_to_matrix
 from torchvision import models
 
 import mano
@@ -69,8 +72,15 @@ class HandModel(nn.Module):
 
         # Create a Meshes object
         batch_size = self.batch_size
+        # print("rh_output.vertices: ", rh_output.vertices.shape, rh_output.vertices.dtype)
+        centered_vertices = rh_output.vertices - rh_output.vertices.mean()
+        abs_min = torch.abs(centered_vertices.min())
+        max_val = torch.max(centered_vertices.max(), abs_min)
+        centered_vertices = centered_vertices / max_val
+        # print("補正されたvertices: ", centered_vertices)
+
         torch3d_meshes = Meshes(
-            verts=[rh_output.vertices[i] * coordinate_transform for i in range(batch_size)],
+            verts=[centered_vertices[i] * coordinate_transform for i in range(batch_size)],
             faces=[mesh_faces for i in range(batch_size)],
             textures=textures,
         )
@@ -83,11 +93,24 @@ class SimpleSilhouetteModel(nn.Module):
         self.device = device
         self.renderer = renderer
         self.meshes = meshes
-        self.camera_position = nn.Parameter(torch.from_numpy(np.array([3.0, 6.9, +2.5], dtype=np.float32)).to(device))
+        # cam_pos = [1.25, 0.27, 0.89]
+        # cam_pos = [-1.7861, -1.2037, -1.5210]
+        cam_pos = [-1.4014, -0.8891, -1.6230]
+        cam_pos = [-1.4870, -1.2655, -0.9307]
+
+        self.camera_position = nn.Parameter(torch.from_numpy(np.array(cam_pos, dtype=np.float32)).to(device))
+
+        # angles = torch.FloatTensor([0, 0, 1.7453])
+        angles = torch.FloatTensor([0.1931, 0.0621, 2.2167])
+        self.angles = nn.Parameter(angles)
+        print("angles: ", self.angles)
+        # torch.FloatTensor([0, 0, 1.7453])
 
     def forward(self):
         R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
         T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
+        rotation = axis_angle_to_matrix(self.angles)
+        R, T = rotate_on_spot(R, T, rotation)
         # Calculate the silhouette loss
         # loss = torch.sum((image[..., 3] - self.image_ref) ** 2)
         return self.renderer(meshes_world=self.meshes.clone(), R=R, T=T)
