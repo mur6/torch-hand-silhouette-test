@@ -86,10 +86,8 @@ def main(args):
     print("######################################")
     pred_vertices = hand_pred_data["vertices"]
     pred_joints = hand_pred_data["joints"]
-    pred_2d_joints = hand_pred_data["joints2d"]
     print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
     print("pred joints: ", pred_joints.shape, pred_joints.dtype, pred_joints[0][0])
-    print("pred 2d joint2: ", pred_2d_joints.shape, pred_2d_joints.dtype)
     print("######################################")
 
     optimizer = optim.Adam(hand_model.parameters(), lr=0.4)
@@ -99,18 +97,14 @@ def main(args):
         hand_pred_data = hand_model()
         pred_vertices = hand_pred_data["vertices"]
         pred_joints = hand_pred_data["joints"]
-        pred_2d_joints = hand_pred_data["joints2d"]
         loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
-        loss3 = 0.01 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
-        loss = loss1 + loss2 + loss3
+        loss = loss1 + loss2
         loss.backward()
         optimizer.step()
-        tqdm.write(f"[Epoch {epoch}] Training loss3: {loss3}")
         tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
     # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred_vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
-    print("pred_2d_joints: ", pred_2d_joints.shape, pred_2d_joints.dtype, pred_2d_joints[0][0])
 
     # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
     # print("pred_v2d: ", pred_v2d.shape)
@@ -121,7 +115,7 @@ def main(args):
             data["image"],
             data["mask"],
             vertices=data["vertices2d"] * RAW_IMG_SIZE,
-            pred_vertices=(pred_2d_joints * RAW_IMG_SIZE).squeeze(0).detach().numpy(),
+            pred_vertices=None,
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
         show_3d_plot(pred_v3d)
