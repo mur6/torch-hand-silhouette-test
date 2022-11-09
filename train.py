@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from pytorch3d.io import load_obj, load_objs_as_meshes
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.loss import keypoints_2d_criterion, keypoints_criterion, vertices_criterion
@@ -47,21 +48,21 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
 
 
 def main(args):
-    data = FreiHAND(args.data_path)[args.data_number]
-    vertices = data["vertices"]
-    keypoints = data["keypoints"]
-    keypoints2d = data["keypoints2d"]
-    camera_params = data["K_matrix"]
-    print(keypoints2d)
-    # mask = torch.tensor(data["mask"], dtype=torch.float32).unsqueeze(0)
+    dataset = FreiHAND(args.data_path)
+    dataloader_train = DataLoader(
+        dataset=dataset, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True
+    )
 
-    print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
+    for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+        break
+
+    print("vertices: ", vertices.shape, vertices.dtype)
     print("keypoints: ", keypoints.shape, keypoints.dtype)
     print("keypoints2d: ", keypoints2d.shape, keypoints2d.dtype)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
-    hand_model = HandModel(device)
+    hand_model = HandModel(device=device, batch_size=args.batch_size)
     hand_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
@@ -80,30 +81,35 @@ def main(args):
         hand_pred_data = hand_model()
         pred_vertices = hand_pred_data["vertices"]
         pred_joints = hand_pred_data["joints"]
-        loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
-        loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
+        loss1 = vertices_criterion(vertices, pred_vertices)
+        loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
         loss = loss1 + loss2
         loss.backward()
         optimizer.step()
-        tqdm.write(f"[Epoch {epoch}] Training Loss: {loss}")
+        tqdm.write(
+            f"[Epoch {epoch}] Training Loss: {loss} pred_vertices: {pred_vertices.shape} pred_joints: {pred_joints.shape}"
+        )
     # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    print("pred_vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
+    print("pred_vertices: ", pred_vertices.shape)
 
     # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
     # print("pred_v2d: ", pred_v2d.shape)
     # print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
+    hand_model.eval()
     if args.visualize:
-        show_images(
-            data["image_raw"],
-            data["image"],
-            data["mask"],
-            vertices=data["vertices2d"] * RAW_IMG_SIZE,
-            pred_vertices=None,
-        )
-        pred_v3d = pred_vertices.squeeze(0).detach().numpy()
-        pred_joints = pred_joints.squeeze(0).detach().numpy()
-
-        show_3d_plot_list((pred_v3d, pred_joints), ncols=2)
+        pred_vertices = hand_pred_data["vertices"]
+        pred_joints = hand_pred_data["joints"]
+        for i, (a_image, a_image_raw, a_mask, a_keypoints2d) in enumerate(zip(image, image_raw, mask, keypoints2d)):
+            show_images(
+                a_image_raw,
+                a_image,
+                a_mask,
+                vertices=a_keypoints2d * RAW_IMG_SIZE,
+                pred_vertices=None,
+            )
+            pred_v3d = pred_vertices[i].detach().numpy()
+            pred_joints = pred_joints[i].detach().numpy()
+            show_3d_plot_list((pred_v3d, pred_joints), ncols=2)
 
     pred_meshes = hand_pred_data["torch3d_meshes"]
     pred_meshes = pred_meshes.detach()
@@ -129,7 +135,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=Path, default="./data/freihand/")
     parser.add_argument("--data_number", type=int)
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--num_epochs", type=int, default=100)
     parser.add_argument("--init_lr", type=float, default=1e-4)
     parser.add_argument("--visualize", action="store_true")

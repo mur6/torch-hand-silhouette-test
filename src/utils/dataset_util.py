@@ -84,26 +84,27 @@ class FreiHAND(Dataset):
         keypoints2d = projectPoints(self.anno[idx], self.K_matrix[idx])
         keypoints2d = torch.FloatTensor(keypoints2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
-        print("center:", np.mean(self.vertices[idx], 0))
+        # print("center:", np.mean(self.vertices[idx], 0))
         # vertices = torch.from_numpy(self.vertices[idx])
         vertices = torch.tensor(self.vertices[idx], dtype=torch.float32)
         vertices2d = projectPoints(self.vertices[idx], self.K_matrix[idx])
         vertices2d = torch.from_numpy(vertices2d / RAW_IMG_SIZE)
         # heatmaps = torch.from_numpy(np.float32(heatmaps))
         focal_len = torch.tensor([self.K_matrix[idx][0][0], self.K_matrix[idx][1][1]])
-        print("K_matrix:", self.K_matrix[idx])
-        return {
-            "image": image,
-            "keypoints": keypoints,
-            "keypoints2d": keypoints2d,
-            "vertices": vertices,
-            "vertices2d": vertices2d,
-            "image_name": image_name,
-            "image_raw": image_raw,
-            "mask": torch.from_numpy(mask),
-            "focal_len": focal_len,
-            "K_matrix": torch.tensor(self.K_matrix[idx]),
-        }
+        # print("K_matrix:", self.K_matrix[idx])
+        # return {
+        #     "image": image,
+        #     "keypoints": keypoints,
+        #     "keypoints2d": keypoints2d,
+        #     "vertices": vertices,
+        #     "vertices2d": vertices2d,
+        #     "image_name": image_name,
+        #     "image_raw": image_raw,
+        #     "mask": torch.from_numpy(mask),
+        #     "focal_len": focal_len,
+        #     "K_matrix": torch.tensor(self.K_matrix[idx]),
+        # }
+        return image, image_raw, mask, vertices, keypoints, keypoints2d
 
 
 def show_data(image_raw, *, vertices=None, keypoints=None):

@@ -26,11 +26,11 @@ import mano
 class HandModel(nn.Module):
     mano_model_path = "./models/MANO_RIGHT.pkl"
     n_comps = 45
-    batch_size = 1
 
-    def __init__(self, device):
+    def __init__(self, *, device, batch_size):
         super().__init__()
         self.device = device
+        self.batch_size = batch_size
         self.rh_model = mano.load(
             model_path=self.mano_model_path,
             is_right=True,
@@ -41,14 +41,12 @@ class HandModel(nn.Module):
 
         betas = torch.rand(self.batch_size, 10) * 0.1
         pose = torch.rand(self.batch_size, self.n_comps) * 0.1
-        angle = (3.14 / 6) * 3
         self.betas = nn.Parameter(betas.to(self.device))
         self.pose = nn.Parameter(pose.to(self.device))
 
     def forward(self):
         angle = (3.14 / 6) * 3
-        global_orient = torch.FloatTensor((angle, 0, 0)).unsqueeze_(0)
-        # Global orient & pose PCAs to 3D hand joints & reconstructed silhouette
+        global_orient = torch.FloatTensor((angle, 0, 0)).expand(self.batch_size, -1)
         transl = torch.zeros((self.batch_size, 3))
         rh_output = self.rh_model(
             betas=self.betas,
