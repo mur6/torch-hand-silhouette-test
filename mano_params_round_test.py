@@ -22,7 +22,8 @@ def main():
 
     for i, ax in enumerate(axs):
         angle = delta * i
-        global_orient = torch.FloatTensor((0, angle, 0)).unsqueeze_(0)
+        print(f"angle: {angle} delta: {delta} index: {i}")
+        global_orient = torch.FloatTensor((angle, 0, 0)).unsqueeze_(0)
         verts = get_mano_verts(global_orient=global_orient)
         show_3d_plot(ax, verts)
     plt.tight_layout()
