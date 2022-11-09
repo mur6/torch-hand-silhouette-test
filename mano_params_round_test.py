@@ -14,16 +14,18 @@ def main():
 
     # global_orient = (torch.FloatTensor((3.14, 3.14, 3.14)) / 2.0).unsqueeze_(0)
 
-    fig = plt.figure()
     delta = 3.14 / 6.0
-    N = 12
-    for i in range(N):
+    # N = 12
+    nrows, ncols = 3, 4
+    fig, axs = plt.subplots(nrows, ncols, figsize=(12, 8), subplot_kw=dict(projection="3d"))
+    axs = axs.flatten()
+
+    for i, ax in enumerate(axs):
         angle = delta * i
         global_orient = torch.FloatTensor((0, angle, 0)).unsqueeze_(0)
         verts = get_mano_verts(global_orient=global_orient)
-        # print(verts)
-        ax = fig.add_subplot(N, 1, (i + 1), projection="3d")
         show_3d_plot(ax, verts)
+    plt.tight_layout()
     plt.show()
 
 
