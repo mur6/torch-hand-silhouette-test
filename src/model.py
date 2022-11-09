@@ -106,7 +106,7 @@ class HandModelWithResnet(nn.Module):
             batch_size=self.batch_size,
             flat_hand_mean=False,
         )
-        self.feature_extractor = models.resnet18(pretrained=True)
+        self.feature_extractor = models.resnet34(pretrained=True)
         # self.feature_extractor.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         fc_in_features = self.feature_extractor.fc.in_features
         self.feature_extractor.fc = nn.Sequential(nn.Linear(fc_in_features, fc_in_features), nn.ReLU())
