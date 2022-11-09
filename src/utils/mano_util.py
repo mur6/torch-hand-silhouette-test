@@ -1,3 +1,7 @@
+import random
+
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 
 import mano
@@ -12,10 +16,15 @@ def make_random_mano_model():
         model_path=mano_model_path, is_right=True, num_pca_comps=n_comps, batch_size=batch_size, flat_hand_mean=False
     )
 
-    betas = torch.rand(batch_size, 10) * 0.1
-    pose = torch.rand(batch_size, n_comps) * 0.1
-    global_orient = torch.rand(batch_size, 3)
-    transl = torch.rand(batch_size, 3)
+    betas = torch.rand(batch_size, 10) * 0.0
+    pose = torch.rand(batch_size, n_comps) * 0.0
+    global_orient = torch.zeros((batch_size, 3))
+    # global_orient = (torch.FloatTensor((3.14, 3.14, 3.14)) / 2.0).unsqueeze_(0)
+    global_orient = torch.FloatTensor((0, 3.14 / 6.0, 0)).unsqueeze_(0)
+    # print(f"global_orient: {global_orient}")
+    transl = torch.zeros((batch_size, 3))
+    transl = torch.FloatTensor((0.0, 1.0, 2.0)).unsqueeze_(0)
+    # print(f"transl: {transl}")
 
     output = rh_model(
         betas=betas, global_orient=global_orient, hand_pose=pose, transl=transl, return_verts=True, return_tips=True
@@ -28,11 +37,45 @@ def get_mano_verts():
     coordinate_transform = torch.tensor([[-1, -1, 1]])
     # mesh_faces = torch.tensor(rh_model.faces.astype(int))
     verts = output.vertices[0] * coordinate_transform
-    output.joints
+
     # faces = [mesh_faces for i in range(batch_size)]
     return verts
 
 
+def show_2d_vertices(vertices):
+    # print("vertices: ", vertices.shape)
+    # if pred_vertices is not None:
+    #     print("pred_vertices: ", pred_vertices.shape)
+
+    fig = plt.figure()
+    axs = fig.add_subplot()
+    axs.scatter(vertices[:, 0], vertices[:, 1], c="k", alpha=0.1)
+    # if pred_vertices is not None:
+    #     axs[3].scatter(pred_vertices[:, 0], pred_vertices[:, 1], c="red", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+
+def show_3d_plot(points3d):
+    # print(pred_v3d.shape, pred_v3d)
+    points3d /= 164.0
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
+    ax.scatter(X, Y, Z, marker="o")
+    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
+    mid_x = (X.max() + X.min()) * 0.5
+    mid_y = (Y.max() + Y.min()) * 0.5
+    mid_z = (Z.max() + Z.min()) * 0.5
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    plt.show()
+
+
 if __name__ == "__main__":
+    torch.manual_seed(0)
+    np.random.seed(0)
+    random.seed(0)
     verts = get_mano_verts()
-    print(verts)
+    show_3d_plot(verts)
