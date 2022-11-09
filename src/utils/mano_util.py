@@ -1,5 +1,3 @@
-import random
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -7,7 +5,7 @@ import torch
 import mano
 
 
-def make_random_mano_model():
+def make_random_mano_model(*, global_orient=None, transl=None):
     mano_model_path = "./models/MANO_RIGHT.pkl"
     n_comps = 45
     batch_size = 1
@@ -18,13 +16,10 @@ def make_random_mano_model():
 
     betas = torch.rand(batch_size, 10) * 0.0
     pose = torch.rand(batch_size, n_comps) * 0.0
-    global_orient = torch.zeros((batch_size, 3))
-    # global_orient = (torch.FloatTensor((3.14, 3.14, 3.14)) / 2.0).unsqueeze_(0)
-    global_orient = torch.FloatTensor((0, 3.14 / 6.0, 0)).unsqueeze_(0)
-    # print(f"global_orient: {global_orient}")
-    transl = torch.zeros((batch_size, 3))
-    transl = torch.FloatTensor((0.0, 1.0, 2.0)).unsqueeze_(0)
-    # print(f"transl: {transl}")
+    if global_orient is None:
+        global_orient = torch.zeros((batch_size, 3))
+    if transl is None:
+        transl = torch.zeros((batch_size, 3))
 
     output = rh_model(
         betas=betas, global_orient=global_orient, hand_pose=pose, transl=transl, return_verts=True, return_tips=True
@@ -74,8 +69,5 @@ def show_3d_plot(points3d):
 
 
 if __name__ == "__main__":
-    torch.manual_seed(0)
-    np.random.seed(0)
-    random.seed(0)
     verts = get_mano_verts()
     show_3d_plot(verts)
