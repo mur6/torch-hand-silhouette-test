@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-from pytorch3d.io import load_obj, load_objs_as_meshes
+
+# from pytorch3d.io import load_obj, load_objs_as_meshes
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -62,8 +63,10 @@ def main(args):
     print("keypoints2d: ", keypoints2d.shape, keypoints2d.dtype)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    image = image.to(device)
     # silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
     hand_model = HandModelWithResnet(device=device, batch_size=args.batch_size)
+    hand_model.to(device)
     hand_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
