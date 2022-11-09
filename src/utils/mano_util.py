@@ -27,12 +27,11 @@ def make_random_mano_model(*, global_orient=None, transl=None):
     return rh_model, output
 
 
-def get_mano_verts():
-    rh_model, output = make_random_mano_model()
+def get_mano_verts(*, global_orient=None, transl=None):
+    rh_model, output = make_random_mano_model(global_orient=global_orient, transl=transl)
     coordinate_transform = torch.tensor([[-1, -1, 1]])
     # mesh_faces = torch.tensor(rh_model.faces.astype(int))
     verts = output.vertices[0] * coordinate_transform
-
     # faces = [mesh_faces for i in range(batch_size)]
     return verts
 
@@ -51,10 +50,9 @@ def show_2d_vertices(vertices):
     plt.show()
 
 
-def show_3d_plot(points3d):
+def show_3d_plot(fig, points3d):
     # print(pred_v3d.shape, pred_v3d)
     points3d /= 164.0
-    fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
     X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
     ax.scatter(X, Y, Z, marker="o")
@@ -65,9 +63,10 @@ def show_3d_plot(points3d):
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
     ax.set_zlim(mid_z - max_range, mid_z + max_range)
-    plt.show()
 
 
 if __name__ == "__main__":
     verts = get_mano_verts()
-    show_3d_plot(verts)
+    fig = plt.figure()
+    show_3d_plot(fig, verts)
+    plt.show()
