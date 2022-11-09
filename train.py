@@ -14,7 +14,7 @@ from src.loss import keypoints_2d_criterion, keypoints_criterion, vertices_crite
 from src.model import HandModel, SimpleSilhouetteModel
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
-from src.utils.mano_util import make_random_mano_model
+from src.utils.mano_util import make_random_mano_model, show_3d_plot_list
 from src.utils.render import make_silhouette_phong_renderer
 
 
@@ -43,23 +43,6 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
     if pred_vertices is not None:
         axs[3].scatter(pred_vertices[:, 0], pred_vertices[:, 1], c="red", alpha=0.3)
     plt.tight_layout()
-    plt.show()
-
-
-def show_3d_plot(points3d):
-    # print(pred_v3d.shape, pred_v3d)
-    points3d /= 164.0
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
-    ax.scatter(X, Y, Z, marker="o")
-    max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
-    mid_x = (X.max() + X.min()) * 0.5
-    mid_y = (Y.max() + Y.min()) * 0.5
-    mid_z = (Z.max() + Z.min()) * 0.5
-    ax.set_xlim(mid_x - max_range, mid_x + max_range)
-    ax.set_ylim(mid_y - max_range, mid_y + max_range)
-    ax.set_zlim(mid_z - max_range, mid_z + max_range)
     plt.show()
 
 
@@ -118,9 +101,9 @@ def main(args):
             pred_vertices=None,
         )
         pred_v3d = pred_vertices.squeeze(0).detach().numpy()
-        show_3d_plot(pred_v3d)
         pred_joints = pred_joints.squeeze(0).detach().numpy()
-        show_3d_plot(pred_joints)
+
+        show_3d_plot_list((pred_v3d, pred_joints), ncols=2)
 
     pred_meshes = hand_pred_data["torch3d_meshes"]
     pred_meshes = pred_meshes.detach()

@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -64,11 +66,22 @@ def show_3d_plot(axs, points3d):
     axs.set_zlim(mid_z - max_range, mid_z + max_range)
 
 
-if __name__ == "__main__":
-    verts = get_mano_verts()
-    nrows, ncols = 2, 2
-    fig, axs = plt.subplots(nrows, ncols, figsize=(9, 6), subplot_kw=dict(projection="3d"))
-    axs = axs.flatten()
-    show_3d_plot(axs[0], verts)
+def show_3d_plot_list(points3d_list, *, ncols=4, nrows=None, figsize=(12, 8)):
+    num = len(points3d_list)
+    if nrows is None:
+        nrows = num // ncols
+    fig, axs = plt.subplots(nrows, ncols, figsize=figsize, subplot_kw=dict(projection="3d"))
+    if isinstance(axs, Iterable):
+        axs = axs.flatten()
+    else:
+        axs = (axs,)
+    for ax, points3d in zip(axs, points3d_list):
+        show_3d_plot(ax, points3d)
+
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    verts = (get_mano_verts(),)
+    show_3d_plot_list(verts, ncols=1)
