@@ -102,7 +102,7 @@ def main(args):
         pred_2d_joints = hand_pred_data["joints2d"]
         loss1 = vertices_criterion(vertices.unsqueeze(0), pred_vertices)
         loss2 = keypoints_criterion(labels=keypoints.unsqueeze(0), pred_joints=pred_joints)
-        loss3 = 1e-2 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
+        loss3 = 0.01 * keypoints_2d_criterion(labels=keypoints2d, pred_joints=pred_2d_joints)
         loss = loss1 + loss2 + loss3
         loss.backward()
         optimizer.step()

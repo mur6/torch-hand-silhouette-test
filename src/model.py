@@ -41,22 +41,28 @@ class HandModel(nn.Module):
 
         betas = torch.rand(self.batch_size, 10) * 0.1
         pose = torch.rand(self.batch_size, self.n_comps) * 0.1
-        global_orient = torch.rand(self.batch_size, 3)
-        transl = torch.rand(self.batch_size, 3)
+        angle = (3.14 / 6) * 3
+        global_orient = torch.FloatTensor((angle, 0, 0)).unsqueeze_(0)
+        transl = torch.rand(self.batch_size, 3) * 0.01
         self.betas = nn.Parameter(betas.to(self.device))
         self.pose = nn.Parameter(pose.to(self.device))
-        self.global_orient = nn.Parameter(global_orient.to(self.device))
-        self.transl = nn.Parameter(transl.to(self.device))
+        # self.global_orient = nn.Parameter(global_orient.to(self.device))
+        # self.transl = nn.Parameter(transl.to(self.device))
         camera_params = torch.rand(self.batch_size, 3)
         self.camera_params = nn.Parameter(camera_params.to(self.device))
+        roll = torch.rand(self.batch_size, 1) * 0.1
+        self.roll_phi = nn.Parameter(roll.to(self.device))
 
     def forward(self):
+        angle = (3.14 / 6) * 3
+        global_orient = torch.FloatTensor((angle, 0, 0)).unsqueeze_(0)
         # Global orient & pose PCAs to 3D hand joints & reconstructed silhouette
+        transl = torch.zeros((self.batch_size, 3))
         rh_output = self.rh_model(
             betas=self.betas,
-            global_orient=self.global_orient,
+            global_orient=global_orient,
             hand_pose=self.pose,
-            transl=self.transl,
+            transl=transl,
             return_verts=True,
             return_tips=True,
         )
@@ -92,6 +98,12 @@ class HandModel(nn.Module):
         # print(f"camera: {camera_params.shape}")
         # joints2d = projectPoints(rh_output_joints.squeeze(0), camera_params)
         joints2d = orthographic_projection(rh_output_joints, self.camera_params)
+
+        s = torch.sin(self.roll_phi)
+        c = torch.cos(self.roll_phi)
+        R = torch.tensor([[c, -s], [s, c]])
+        joints2d = torch.matmul(joints2d, R)
+        # print(f"joints2d.shape: {joints2d.shape}")
         return {
             "torch3d_meshes": torch3d_meshes,
             "vertices": rh_output.vertices,
