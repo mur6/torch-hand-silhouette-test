@@ -91,64 +91,101 @@ class HandModel(nn.Module):
         }
 
 
-def projectPoints(X, camera):
-    """
-    Projects 3D coordinates into image space.
-    Function taken from https://github.com/lmb-freiburg/freihand
-    """
-    # print(f"x.shape: {X.shape}")
-    X = X.permute(1, 0)  # torch.transpose(X, 0, 1)
-    # print(f"x.shape: {X.shape}")
-    uv = torch.matmul(camera, X).permute(1, 0)
-    # print(f"uv.shape: {uv.shape}")
-    ret = uv[:, :2] / uv[:, -1:]
-    # print(f"ret.shape: {ret.shape}")
-    # print(ret)
-    return ret
+class HandModelWithResnet(nn.Module):
+    mano_model_path = "./models/MANO_RIGHT.pkl"
+    num_pca_comps = 45
 
-
-def orthographic_projection(X, camera):
-    """Perform orthographic projection of 3D points X using the camera parameters
-    Args:
-        X: size = [B, N, 3]
-        camera: size = [B, 3]
-    Returns:
-        Projected 2D points -- size = [B, N, 2]
-    """
-    camera = camera.view(-1, 1, 3)
-    X_trans = X[:, :, :2] + camera[:, :, 1:]
-    shape = X_trans.shape
-    X_2d = (camera[:, :, 0] * X_trans.view(shape[0], -1)).view(shape)
-    return X_2d
-
-
-class SimpleSilhouetteModel(nn.Module):
-    def __init__(self, device, renderer, meshes):
+    def __init__(self, *, device, batch_size):
         super().__init__()
         self.device = device
-        self.renderer = renderer
-        self.meshes = meshes
-        # cam_pos = [1.25, 0.27, 0.89]
-        # cam_pos = [-1.7861, -1.2037, -1.5210]
-        cam_pos = [-1.4014, -0.8891, -1.6230]
-        cam_pos = [-1.4870, -1.2655, -0.9307]
+        self.batch_size = batch_size
+        self.rh_model = mano.load(
+            model_path=self.mano_model_path,
+            is_right=True,
+            num_pca_comps=self.num_pca_comps,
+            batch_size=self.batch_size,
+            flat_hand_mean=False,
+        )
+        self.feature_extractor = models.resnet18(pretrained=True)
+        # self.feature_extractor.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        fc_in_features = self.feature_extractor.fc.in_features
+        self.feature_extractor.fc = nn.Sequential(nn.Linear(fc_in_features, fc_in_features), nn.ReLU())
 
-        self.camera_position = nn.Parameter(torch.from_numpy(np.array(cam_pos, dtype=np.float32)).to(device))
+        self.hand_pca_estimator = nn.Sequential(
+            nn.Linear(fc_in_features, fc_in_features // 2),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 2, self.num_pca_comps),  # hand pose PCAs
+        )
 
-        # angles = torch.FloatTensor([0, 0, 1.7453])
-        angles = torch.FloatTensor([0.1931, 0.0621, 2.2167])
-        self.angles = nn.Parameter(angles)
-        print("angles: ", self.angles)
-        # torch.FloatTensor([0, 0, 1.7453])
+        self.hand_shape_estimator = nn.Sequential(
+            nn.Linear(fc_in_features, fc_in_features // 2),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 2, 10),  # MANO shape parameters
+        )
+        # 3D global orientation
+        self.global_orientation = nn.Sequential(
+            nn.Linear(fc_in_features, fc_in_features // 2),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 2, fc_in_features // 4),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 4, 3),
+        )
+        # translation
+        self.translation_estimator = nn.Sequential(
+            nn.Linear(fc_in_features, fc_in_features // 2),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 2, fc_in_features // 4),
+            nn.ReLU(),
+            nn.Linear(fc_in_features // 4, 3),  # 3D translation
+        )
 
-    def forward(self):
-        R = look_at_rotation(self.camera_position[None, :], device=self.device)  # (1, 3, 3)
-        T = -torch.bmm(R.transpose(1, 2), self.camera_position[None, :, None])[:, :, 0]  # (1, 3)
-        rotation = axis_angle_to_matrix(self.angles)
-        R, T = rotate_on_spot(R, T, rotation)
-        # Calculate the silhouette loss
-        # loss = torch.sum((image[..., 3] - self.image_ref) ** 2)
-        return self.renderer(meshes_world=self.meshes.clone(), R=R, T=T)
+    def forward(self, image):
+        x = self.feature_extractor(image)
+        hand_pca_pose = self.hand_pca_estimator(x)
+        hand_shape = self.hand_shape_estimator(x)
+        global_orient = self.global_orientation(x)
+        transl = self.translation_estimator(x)
+
+        # angle = (3.14 / 6) * 3
+        # global_orient = torch.FloatTensor((angle, 0, 0)).expand(self.batch_size, -1)
+        # transl = torch.zeros((self.batch_size, 3))
+        rh_output = self.rh_model(
+            betas=hand_shape,
+            global_orient=global_orient,
+            hand_pose=hand_pca_pose,
+            transl=transl,
+            return_verts=True,
+            return_tips=True,
+        )
+        # alpha = 0.3050 / 9.8489
+
+        ############################################
+        coordinate_transform = torch.tensor([[-1, -1, 1]]).to(self.device)
+        mesh_faces = torch.tensor(self.rh_model.faces.astype(int)).to(self.device)
+
+        # Create a Meshes object
+        batch_size = self.batch_size
+        # print("rh_output.vertices: ", rh_output.vertices.shape, rh_output.vertices.dtype)
+        centered_vertices = rh_output.vertices - rh_output.vertices.mean()
+        abs_min = torch.abs(centered_vertices.min())
+        max_val = torch.max(centered_vertices.max(), abs_min)
+        centered_vertices = centered_vertices / max_val
+        # print("補正されたvertices: ", centered_vertices)
+        reorder = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]
+        rh_output_joints = rh_output.joints[:, reorder, :]
+
+        # torch3d_meshes = Meshes(
+        #     verts=[centered_vertices[i] * coordinate_transform for i in range(batch_size)],
+        #     faces=[mesh_faces for i in range(batch_size)],
+        #     textures=textures,
+        # )
+
+        return {
+            # "torch3d_meshes": torch3d_meshes,
+            "vertices": rh_output.vertices,
+            "joints": rh_output_joints,
+            "code": torch.cat([hand_pca_pose, hand_shape], -1),
+        }
 
 
 class Silhouette2Model(nn.Module):

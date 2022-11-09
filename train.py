@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from src.loss import keypoints_2d_criterion, keypoints_criterion, vertices_criterion
-from src.model import HandModel, SimpleSilhouetteModel
+from src.model import HandModel, HandModelWithResnet
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
 from src.utils.mano_util import make_random_mano_model, show_3d_plot_list
@@ -56,17 +56,18 @@ def main(args):
     for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
         break
 
+    print("image: ", image.shape, image.dtype)
     print("vertices: ", vertices.shape, vertices.dtype)
     print("keypoints: ", keypoints.shape, keypoints.dtype)
     print("keypoints2d: ", keypoints2d.shape, keypoints2d.dtype)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
-    hand_model = HandModel(device=device, batch_size=args.batch_size)
+    hand_model = HandModelWithResnet(device=device, batch_size=args.batch_size)
     hand_model.train()
 
     # focal_lens = data["focal_len"].unsqueeze(0)
-    hand_pred_data = hand_model()
+    hand_pred_data = hand_model(image)
     print("######################################")
     pred_vertices = hand_pred_data["vertices"]
     pred_joints = hand_pred_data["joints"]
@@ -78,7 +79,7 @@ def main(args):
     loop = tqdm(range(args.num_epochs))
     for epoch in loop:
         optimizer.zero_grad()
-        hand_pred_data = hand_model()
+        hand_pred_data = hand_model(image)
         pred_vertices = hand_pred_data["vertices"]
         pred_joints = hand_pred_data["joints"]
         loss1 = vertices_criterion(vertices, pred_vertices)
