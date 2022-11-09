@@ -17,7 +17,6 @@ from src.model import HandModel, HandModelWithResnet
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
 from src.utils.mano_util import make_random_mano_model, show_3d_plot_list
-from src.utils.render import make_silhouette_phong_renderer
 
 
 def show_images(image_raw, image, mask, vertices, pred_vertices):

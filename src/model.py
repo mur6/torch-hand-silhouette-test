@@ -4,20 +4,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-from pytorch3d.renderer import (
-    BlendParams,
-    MeshRasterizer,
-    MeshRenderer,
-    PerspectiveCameras,
-    RasterizationSettings,
-    SoftSilhouetteShader,
-    TexturesVertex,
-    look_at_rotation,
-    look_at_view_transform,
-    rotate_on_spot,
-)
-from pytorch3d.structures import Meshes
-from pytorch3d.transforms import axis_angle_to_matrix
 from torchvision import models
 
 import mano
