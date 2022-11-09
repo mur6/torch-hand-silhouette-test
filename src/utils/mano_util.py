@@ -50,23 +50,25 @@ def show_2d_vertices(vertices):
     plt.show()
 
 
-def show_3d_plot(fig, points3d):
+def show_3d_plot(axs, points3d):
     # print(pred_v3d.shape, pred_v3d)
     points3d /= 164.0
-    ax = fig.add_subplot(projection="3d")
     X, Y, Z = points3d[:, 0], points3d[:, 1], points3d[:, 2]
-    ax.scatter(X, Y, Z, marker="o")
+    axs.scatter(X, Y, Z, marker="o")
     max_range = np.array([X.max() - X.min(), Y.max() - Y.min(), Z.max() - Z.min()]).max() * 0.5
     mid_x = (X.max() + X.min()) * 0.5
     mid_y = (Y.max() + Y.min()) * 0.5
     mid_z = (Z.max() + Z.min()) * 0.5
-    ax.set_xlim(mid_x - max_range, mid_x + max_range)
-    ax.set_ylim(mid_y - max_range, mid_y + max_range)
-    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    axs.set_xlim(mid_x - max_range, mid_x + max_range)
+    axs.set_ylim(mid_y - max_range, mid_y + max_range)
+    axs.set_zlim(mid_z - max_range, mid_z + max_range)
 
 
 if __name__ == "__main__":
     verts = get_mano_verts()
-    fig = plt.figure()
-    show_3d_plot(fig, verts)
+    nrows, ncols = 2, 2
+    fig, axs = plt.subplots(nrows, ncols, figsize=(9, 6), subplot_kw=dict(projection="3d"))
+    axs = axs.flatten()
+    show_3d_plot(axs[0], verts)
+    plt.tight_layout()
     plt.show()

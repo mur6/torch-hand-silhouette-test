@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-import mano
-from src.utils.mano_util import show_3d_plot
+from src.utils.mano_util import get_mano_verts, show_3d_plot
 
 
 def main():
@@ -13,15 +12,19 @@ def main():
     np.random.seed(0)
     random.seed(0)
 
-    verts = get_mano_verts()
-    show_3d_plot(verts)
-
     # global_orient = (torch.FloatTensor((3.14, 3.14, 3.14)) / 2.0).unsqueeze_(0)
-    global_orient = torch.FloatTensor((0, 3.14 / 6.0, 0)).unsqueeze_(0)
-    # print(f"global_orient: {global_orient}")
 
-    transl = torch.FloatTensor((0.0, 1.0, 2.0)).unsqueeze_(0)
-    # print(f"transl: {transl}")
+    fig = plt.figure()
+    delta = 3.14 / 6.0
+    N = 12
+    for i in range(N):
+        angle = delta * i
+        global_orient = torch.FloatTensor((0, angle, 0)).unsqueeze_(0)
+        verts = get_mano_verts(global_orient=global_orient)
+        # print(verts)
+        ax = fig.add_subplot(N, 1, (i + 1), projection="3d")
+        show_3d_plot(ax, verts)
+    plt.show()
 
 
 if __name__ == "__main__":
