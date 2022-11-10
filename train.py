@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.optim as optim
-
-# from pytorch3d.io import load_obj, load_objs_as_meshes
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -52,6 +51,7 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
 def train_model(
     model,
     dataloader_train,
+    dataloader_val,
     optimizer,
     device,
     num_epochs,
@@ -96,13 +96,30 @@ def train_model(
 
         # Validation Phase
         model.eval()
+        with torch.no_grad():
+            for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+                image = image.to(device)
+                image_raw = image_raw.to(device)
+                mask = mask.to(device)
+                vertices = vertices.to(device)
+                keypoints = keypoints.to(device)
+                keypoints2d = keypoints2d.to(device)
+
+                loss1 = vertices_criterion(vertices, pred_vertices)
+                loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
+                loss = loss1 + loss2
+
+                val_loss += loss.item() * image.size(0)
+            val_loss /= len(dataloader_val.dataset)
+            val_loss_list.append(val_loss)
+
         # Learning rate scheduling
         if scheduler is not None:
             scheduler.step(val_loss)
             last_lr_list.append(scheduler._last_lr)
 
         # Save the loss values
-        df_loss = pd.DataFrame({"train_loss": train_loss_list, "last_lr": last_lr_list})  # "val_loss": val_loss_list,
+        df_loss = pd.DataFrame({"train_loss": train_loss_list, "val_loss": val_loss_list, "last_lr": last_lr_list})
         df_loss.to_csv(str(checkpoint_path / "loss.csv"), index=False)
 
         # Save checkpoints
@@ -181,9 +198,14 @@ def main(args):
 
     start_epoch = 0
 
-    dataset_train = FreiHAND(args.data_path)
+    dataset_train = FreiHAND(args.data_path, range=(0, 3000))
+    dataset_val = FreiHAND(args.data_path, range=(3000, 4000))
+
     dataloader_train = DataLoader(
         dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True
+    )
+    dataloader_val = DataLoader(
+        dataset=dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True
     )
 
     print("Number of samples in training dataset: ", len(dataset_train))
@@ -218,6 +240,7 @@ def main(args):
     train_model(
         model,
         dataloader_train,
+        dataloader_val,
         optimizer,
         device,
         args.num_epochs,
