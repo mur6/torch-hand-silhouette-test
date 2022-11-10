@@ -11,3 +11,4 @@ imageio
 scikit-image
 plotly
 tqdm
+scikit-learn
