@@ -202,10 +202,10 @@ def main(args):
     # print(dataset_val[0][-1])
 
     dataloader_train = DataLoader(
-        dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True
+        dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True, drop_last=True
     )
     dataloader_val = DataLoader(
-        dataset=dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True
+        dataset=dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True
     )
 
     print("Number of samples in training dataset: ", len(dataset_train))
