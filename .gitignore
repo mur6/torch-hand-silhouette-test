@@ -10,3 +10,4 @@ __pycache__/
 
 # other
 checkpoints/
+data/samples/
