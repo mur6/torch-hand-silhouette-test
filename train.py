@@ -102,7 +102,7 @@ def train_model(
             last_lr_list.append(scheduler._last_lr)
 
         # Save the loss values
-        df_loss = pd.DataFrame({"train_loss": train_loss_list, "val_loss": val_loss_list, "last_lr": last_lr_list})
+        df_loss = pd.DataFrame({"train_loss": train_loss_list, "last_lr": last_lr_list})  # "val_loss": val_loss_list,
         df_loss.to_csv(str(checkpoint_path / "loss.csv"), index=False)
 
         # Save checkpoints
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     random.seed(0)
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=Path, default="./data/freihand/")
-    parser.add_argument("--checkpoint_path", type=Path, default="./checkpoint")
+    parser.add_argument("--checkpoint_path", type=Path, default="./checkpoints")
     parser.add_argument("--batch_size", type=int, default=4)
     parser.add_argument("--num_epochs", type=int, default=150)
     parser.add_argument("--init_lr", type=float, default=1e-4)
