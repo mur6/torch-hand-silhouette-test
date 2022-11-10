@@ -105,7 +105,7 @@ class FreiHAND(Dataset):
         #     "focal_len": focal_len,
         #     "K_matrix": torch.tensor(self.K_matrix[idx]),
         # }
-        return image, image_raw, mask, vertices, keypoints, keypoints2d
+        return image, image_raw, mask, vertices, keypoints, image_name
 
 
 def show_data(image_raw, *, vertices=None, keypoints=None):

@@ -72,13 +72,12 @@ def train_model(
 
         # Train Phase
         model.train()
-        for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+        for image, image_raw, mask, vertices, keypoints, _ in dataloader_train:
             image = image.to(device)
             image_raw = image_raw.to(device)
             mask = mask.to(device)
             vertices = vertices.to(device)
             keypoints = keypoints.to(device)
-            keypoints2d = keypoints2d.to(device)
 
             optimizer.zero_grad()
             outputs = model(image)
@@ -97,13 +96,12 @@ def train_model(
         # Validation Phase
         model.eval()
         with torch.no_grad():
-            for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+            for image, image_raw, mask, vertices, keypoints, _ in dataloader_train:
                 image = image.to(device)
                 image_raw = image_raw.to(device)
                 mask = mask.to(device)
                 vertices = vertices.to(device)
                 keypoints = keypoints.to(device)
-                keypoints2d = keypoints2d.to(device)
 
                 loss1 = vertices_criterion(vertices, pred_vertices)
                 loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
@@ -198,8 +196,10 @@ def main(args):
 
     start_epoch = 0
 
-    dataset_train = FreiHAND(args.data_path, range=(0, 3000))
-    dataset_val = FreiHAND(args.data_path, range=(3000, 4000))
+    dataset_train = FreiHAND(args.data_path, range_from=0, range_to=3000)
+    # print(dataset_train[0][-1])
+    dataset_val = FreiHAND(args.data_path, range_from=3000, range_to=4000)
+    # print(dataset_val[0][-1])
 
     dataloader_train = DataLoader(
         dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True
@@ -209,6 +209,7 @@ def main(args):
     )
 
     print("Number of samples in training dataset: ", len(dataset_train))
+    print("Number of samples in validation dataset: ", len(dataset_val))
 
     # Create model, optimizer, and learning rate scheduler
     model = HandModelWithResnet(device=device, batch_size=args.batch_size)
