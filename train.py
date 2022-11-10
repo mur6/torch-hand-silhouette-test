@@ -1,10 +1,12 @@
 import argparse
 import pickle
 import random
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torch.optim as optim
 
@@ -47,95 +49,185 @@ def show_images(image_raw, image, mask, vertices, pred_vertices):
     plt.show()
 
 
+def train_model(
+    model,
+    dataloader_train,
+    optimizer,
+    device,
+    num_epochs,
+    start_epoch=0,
+    scheduler=None,
+    train_loss_list=[],
+    val_loss_list=[],
+    last_lr_list=[],
+    checkpoint_path="./checkpoint",
+):
+    if start_epoch == 0:
+        min_val_loss = sys.maxsize
+    else:
+        min_val_loss = min(val_loss_list)
+
+    for epoch in range(start_epoch, num_epochs):
+        train_loss, val_loss = 0, 0
+
+        # Train Phase
+        model.train()
+        for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+            image = image.to(device)
+            image_raw = image_raw.to(device)
+            mask = mask.to(device)
+            vertices = vertices.to(device)
+            keypoints = keypoints.to(device)
+            keypoints2d = keypoints2d.to(device)
+
+            optimizer.zero_grad()
+            outputs = model(image)
+            pred_vertices = outputs["vertices"]
+            pred_joints = outputs["joints"]
+            loss1 = vertices_criterion(vertices, pred_vertices)
+            loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
+            loss = loss1 + loss2
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item() * image.size(0)
+        train_loss /= len(dataloader_train.dataset)
+        train_loss_list.append(train_loss)
+
+        # Validation Phase
+        model.eval()
+        # Learning rate scheduling
+        if scheduler is not None:
+            scheduler.step(val_loss)
+            last_lr_list.append(scheduler._last_lr)
+
+        # Save the loss values
+        df_loss = pd.DataFrame({"train_loss": train_loss_list, "val_loss": val_loss_list, "last_lr": last_lr_list})
+        df_loss.to_csv(str(checkpoint_path / "loss.csv"), index=False)
+
+        # Save checkpoints
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "train_loss": train_loss,
+                "val_loss": val_loss,
+            },
+            str(checkpoint_path / "model.pth"),
+        )
+
+        if (epoch + 1) % 10 == 0:
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                },
+                str(checkpoint_path / f"model_epoch{epoch}.pth"),
+            )
+
+        if val_loss < min_val_loss:
+            min_val_loss = val_loss
+            torch.save(
+                {
+                    "epoch": epoch,
+                    "model_state_dict": model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "scheduler_state_dict": scheduler.state_dict(),
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                },
+                str(checkpoint_path / "model_best.pth"),
+            )
+
+        print(
+            f"[Epoch {epoch}] Training Loss: {train_loss}, Validation Loss: {val_loss}, Last Learning Rate: {scheduler._last_lr}"
+        )
+
+    # model.eval()
+    # if args.visualize:
+    #     pred_vertices = hand_pred_data["vertices"]
+    #     pred_joints = hand_pred_data["joints"]
+    #     for i, (a_image, a_image_raw, a_mask, a_keypoints2d) in enumerate(zip(image, image_raw, mask, keypoints2d)):
+    #         show_images(
+    #             a_image_raw,
+    #             a_image,
+    #             a_mask,
+    #             vertices=a_keypoints2d * RAW_IMG_SIZE,
+    #             pred_vertices=None,
+    #         )
+    #         pred_v3d = pred_vertices[i].detach().numpy()
+    #         pred_joints = pred_joints[i].detach().numpy()
+    #         show_3d_plot_list((pred_v3d, pred_joints), ncols=2)
+
+    # pred_meshes = hand_pred_data["torch3d_meshes"]
+    # pred_meshes = pred_meshes.detach()
+    # if args.save_mesh:
+    #     print(pred_meshes)
+    #     with open("torch3d_pred_meshes.pickle", "wb") as fh:
+    #         pickle.dump(pred_meshes, fh)
+    #     print("saved.")
+
+
 def main(args):
-    dataset = FreiHAND(args.data_path)
-    dataloader_train = DataLoader(
-        dataset=dataset, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True
-    )
+    print("Checkpoint Path: {}\n".format(args.checkpoint_path))
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
-        image = image.to(device)
-        image_raw = image_raw.to(device)
-        mask = mask.to(device)
-        vertices = vertices.to(device)
-        keypoints = keypoints.to(device)
-        keypoints2d = keypoints2d.to(device)
-        break
+    start_epoch = 0
 
-    print("image: ", image.shape, image.dtype)
-    print("vertices: ", vertices.shape, vertices.dtype)
-    print("keypoints: ", keypoints.shape, keypoints.dtype)
-    print("keypoints2d: ", keypoints2d.shape, keypoints2d.dtype)
+    dataset_train = FreiHAND(args.data_path)
+    dataloader_train = DataLoader(
+        dataset=dataset_train, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True
+    )
 
-    # silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
-    hand_model = HandModelWithResnet(device=device, batch_size=args.batch_size)
-    hand_model.to(device)
-    hand_model.train()
+    print("Number of samples in training dataset: ", len(dataset_train))
 
-    # focal_lens = data["focal_len"].unsqueeze(0)
-    hand_pred_data = hand_model(image)
-    print("######################################")
-    pred_vertices = hand_pred_data["vertices"]
-    pred_joints = hand_pred_data["joints"]
-    print("pred vertices: ", pred_vertices.shape, pred_vertices.dtype, pred_vertices[0][0])
-    print("pred joints: ", pred_joints.shape, pred_joints.dtype, pred_joints[0][0])
-    print("######################################")
+    # Create model, optimizer, and learning rate scheduler
+    model = HandModelWithResnet(device=device, batch_size=args.batch_size)
+    model.to(device)
 
-    optimizer = optim.Adam(hand_model.parameters(), lr=0.4)
-    loop = tqdm(range(args.num_epochs))
-    for epoch in loop:
-        optimizer.zero_grad()
-        hand_pred_data = hand_model(image)
-        pred_vertices = hand_pred_data["vertices"]
-        pred_joints = hand_pred_data["joints"]
-        loss1 = vertices_criterion(vertices, pred_vertices)
-        loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
-        loss = loss1 + loss2
-        loss.backward()
-        optimizer.step()
-        tqdm.write(
-            f"[Epoch {epoch}] Training Loss: {loss}"
-            # f"[Epoch {epoch}] Training Loss: {loss} pred_vertices: {pred_vertices.shape} pred_joints: {pred_joints.shape}"
-        )
-    # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
-    print("pred_vertices: ", pred_vertices.shape)
+    optimizer = optim.Adam(model.parameters(), lr=args.init_lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=5, min_lr=1e-6)
 
-    # pred_v2d = projectPoints(pred_vertices.squeeze(0).detach().numpy(), k_matrix.numpy())
-    # print("pred_v2d: ", pred_v2d.shape)
-    # print(f"pred_v2d: min={pred_v2d.min()}, max={pred_v2d.max()}, mean={pred_v2d.mean()}")
-    hand_model.eval()
-    if args.visualize:
-        pred_vertices = hand_pred_data["vertices"]
-        pred_joints = hand_pred_data["joints"]
-        for i, (a_image, a_image_raw, a_mask, a_keypoints2d) in enumerate(zip(image, image_raw, mask, keypoints2d)):
-            show_images(
-                a_image_raw,
-                a_image,
-                a_mask,
-                vertices=a_keypoints2d * RAW_IMG_SIZE,
-                pred_vertices=None,
-            )
-            pred_v3d = pred_vertices[i].detach().numpy()
-            pred_joints = pred_joints[i].detach().numpy()
-            show_3d_plot_list((pred_v3d, pred_joints), ncols=2)
+    # Train model
+    train_loss_list = []
+    val_loss_list = []
+    last_lr_list = []
 
-    pred_meshes = hand_pred_data["torch3d_meshes"]
-    pred_meshes = pred_meshes.detach()
-    if args.save_mesh:
-        print(pred_meshes)
-        with open("torch3d_pred_meshes.pickle", "wb") as fh:
-            pickle.dump(pred_meshes, fh)
-        print("saved.")
-        # plt.figure(figsize=(7, 7))
-        # texture_image = mesh.textures.maps_padded()
-        # plt.imshow(texture_image.squeeze().cpu().numpy())
-        # plt.axis("off")
-        # plt.figure(figsize=(7, 7))
-        # texturesuv_image_matplotlib(mesh.textures, subsample=None)
-        # plt.axis("off")
-        # plt.show()
+    if args.resume:
+        checkpoint_file = "model.pth"
+        checkpoint_file_path = str(args.checkpoint_path / checkpoint_file)
+        checkpoint = torch.load(checkpoint_file_path)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        start_epoch = checkpoint["epoch"] + 1
+        print("Start Epoch: {}\n".format(start_epoch))
+
+        df_loss = pd.read_csv(str(args.checkpoint_path / "loss.csv"))
+        train_loss_list = df_loss["train_loss"].tolist()
+        val_loss_list = df_loss["val_loss"].tolist()
+        last_lr_list = df_loss["last_lr"].tolist()
+
+    train_model(
+        model,
+        dataloader_train,
+        optimizer,
+        device,
+        args.num_epochs,
+        start_epoch,
+        scheduler,
+        train_loss_list,
+        val_loss_list,
+        last_lr_list,
+        args.checkpoint_path,
+    )
 
 
 if __name__ == "__main__":
@@ -144,11 +236,10 @@ if __name__ == "__main__":
     random.seed(0)
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=Path, default="./data/freihand/")
-    parser.add_argument("--data_number", type=int)
+    parser.add_argument("--checkpoint_path", type=Path, default="./checkpoint")
     parser.add_argument("--batch_size", type=int, default=4)
-    parser.add_argument("--num_epochs", type=int, default=100)
+    parser.add_argument("--num_epochs", type=int, default=150)
     parser.add_argument("--init_lr", type=float, default=1e-4)
-    parser.add_argument("--visualize", action="store_true")
-    parser.add_argument("--save_mesh", action="store_true")
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     main(args)
