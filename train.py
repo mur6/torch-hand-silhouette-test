@@ -72,7 +72,7 @@ def train_model(
 
         # Train Phase
         model.train()
-        for image, image_raw, mask, vertices, keypoints, _ in dataloader_train:
+        for image, image_raw, mask, vertices, keypoints in dataloader_train:
             image = image.to(device)
             image_raw = image_raw.to(device)
             mask = mask.to(device)
@@ -96,7 +96,7 @@ def train_model(
         # Validation Phase
         model.eval()
         with torch.no_grad():
-            for image, image_raw, mask, vertices, keypoints, _ in dataloader_train:
+            for image, image_raw, mask, vertices, keypoints in dataloader_train:
                 image = image.to(device)
                 image_raw = image_raw.to(device)
                 mask = mask.to(device)
