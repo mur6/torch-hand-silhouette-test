@@ -1,12 +1,26 @@
-from math import radians
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
+
+# PyTorch3D rendering components
+from pytorch3d.renderer import (
+    BlendParams,
+    MeshRasterizer,
+    MeshRenderer,
+    PerspectiveCameras,
+    RasterizationSettings,
+    SoftSilhouetteShader,
+    TexturesVertex,
+)
+
+# PyTorch3D data structures
+from pytorch3d.structures import Meshes
 from torchvision import models
 
 import mano
+from mano.lbs import vertices2joints
 
 
 class HandModel(nn.Module):
@@ -77,21 +91,52 @@ class HandModel(nn.Module):
         }
 
 
+class RefineNet(nn.Module):
+    def __init__(self, num_vertices):
+        super(RefineNet, self).__init__()
+
+        self.num_vertices = num_vertices
+
+        self.net = nn.Sequential(
+            nn.Conv2d(2, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False),
+            nn.BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False),
+            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False),
+            nn.BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d(output_size=(7, 7)),
+        )
+
+        self.fc = nn.Linear(7 * 7 * 256, num_vertices * 3)
+
+    def forward(self, x):
+        x = self.net(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+
 class HandModelWithResnet(nn.Module):
     mano_model_path = "./models/MANO_RIGHT.pkl"
     num_pca_comps = 45
 
-    def __init__(self, *, device, batch_size):
+    def __init__(self, *, device):
         super().__init__()
         self.device = device
-        self.batch_size = batch_size
+        # MANO right hand template model
         self.rh_model = mano.load(
             model_path=self.mano_model_path,
             is_right=True,
             num_pca_comps=self.num_pca_comps,
-            batch_size=self.batch_size,
-            flat_hand_mean=False,
+            flat_hand_mean=True,
         )
+        # RefineNet
+        self.refine_net = RefineNet(num_vertices=778)
+
         self.feature_extractor = models.resnet34(pretrained=True)
         # self.feature_extractor.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         fc_in_features = self.feature_extractor.fc.in_features
@@ -125,7 +170,14 @@ class HandModelWithResnet(nn.Module):
             nn.Linear(fc_in_features // 4, 3),  # 3D translation
         )
 
-    def forward(self, image):
+        self.blend_params = BlendParams(sigma=1e-4, gamma=1e-4, background_color=(1.0, 1.0, 1.0))
+        self.raster_settings = RasterizationSettings(
+            image_size=224,
+            blur_radius=0.0,
+            faces_per_pixel=100,
+        )
+
+    def forward(self, image, mask_gt):
         x = self.feature_extractor(image)
         hand_pca_pose = self.hand_pca_estimator(x)
         hand_shape = self.hand_shape_estimator(x)
@@ -143,33 +195,58 @@ class HandModelWithResnet(nn.Module):
             return_verts=True,
             return_tips=True,
         )
-        # alpha = 0.3050 / 9.8489
 
-        ############################################
+        # ################### pytorch3d: Start #############################
+        # Initialize each vertex to be white in color
+        verts_rgb = torch.ones_like(rh_output.vertices)  # (B, V, 3)
+        textures = TexturesVertex(verts_features=verts_rgb.to(self.device))
+
+        # Coordinate transformation from FreiHand to PyTorch3D for rendering
         coordinate_transform = torch.tensor([[-1, -1, 1]]).to(self.device)
+
         mesh_faces = torch.tensor(self.rh_model.faces.astype(int)).to(self.device)
 
+        batch_size = image.shape[0]
         # Create a Meshes object
-        batch_size = self.batch_size
-        # print("rh_output.vertices: ", rh_output.vertices.shape, rh_output.vertices.dtype)
-        centered_vertices = rh_output.vertices - rh_output.vertices.mean()
-        abs_min = torch.abs(centered_vertices.min())
-        max_val = torch.max(centered_vertices.max(), abs_min)
-        centered_vertices = centered_vertices / max_val
-        # print("補正されたvertices: ", centered_vertices)
-        reorder = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]
-        rh_output_joints = rh_output.joints[:, reorder, :]
+        hand_meshes = Meshes(
+            verts=[rh_output.vertices[i] * coordinate_transform for i in range(batch_size)],
+            faces=[mesh_faces for i in range(batch_size)],
+            textures=textures,
+        )
 
-        # torch3d_meshes = Meshes(
-        #     verts=[centered_vertices[i] * coordinate_transform for i in range(batch_size)],
-        #     faces=[mesh_faces for i in range(batch_size)],
-        #     textures=textures,
-        # )
+        # Render the meshes
+        silhouettes = self.silhouette_renderer(meshes_world=hand_meshes)
+        silhouettes = silhouettes[..., 3]
+        # ################### pytorch3d: End #############################
+
+        # ################### 村木が作成した独自の補正コード: Start ####################
+        # centered_vertices = rh_output.vertices - rh_output.vertices.mean()
+        # abs_min = torch.abs(centered_vertices.min())
+        # max_val = torch.max(centered_vertices.max(), abs_min)
+        # centered_vertices = centered_vertices / max_val
+        # print("補正されたvertices: ", centered_vertices)
+        # ################### 村木が作成した独自の補正コード: End ####################
+
+        reorder = [0, 13, 14, 15, 16, 1, 2, 3, 17, 4, 5, 6, 18, 10, 11, 12, 19, 7, 8, 9, 20]
+        output_joints = rh_output.joints[:, reorder, :]
+
+        # ################### Refinement Start ####################
+        diff_map = torch.cat((mask_gt.unsqueeze(1), silhouettes.unsqueeze(1)), dim=1)
+        offset = self.refine_net(diff_map)
+        offset = torch.clamp(offset, min=-50, max=50)
+        offset = offset.view(-1, 778, 3)
+
+        vertices = rh_output.vertices + offset
+
+        refined_joints = vertices2joints(self.rh_model.J_regressor, vertices)
+        refined_joints = self.rh_model.add_joints(vertices, refined_joints)[:, reorder, :]
+        # ################### Refinement End ######################
 
         return {
-            # "torch3d_meshes": torch3d_meshes,
             "vertices": rh_output.vertices,
-            "joints": rh_output_joints,
+            "refined_vertices": vertices,
+            "joints": output_joints,
+            "refined_joints": refined_joints,
             "code": torch.cat([hand_pca_pose, hand_shape], -1),
         }
 

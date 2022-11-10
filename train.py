@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from src.loss import keypoints_2d_criterion, keypoints_criterion, vertices_criterion
+from src.loss import criterion  # , keypoints_criterion, vertices_criterion
 from src.model import HandModel, HandModelWithResnet
 from src.utils.data import get_dataset
 from src.utils.dataset_util import RAW_IMG_SIZE, FreiHAND, projectPoints
@@ -81,11 +81,7 @@ def train_model(
 
             optimizer.zero_grad()
             outputs = model(image)
-            pred_vertices = outputs["vertices"]
-            pred_joints = outputs["joints"]
-            loss1 = vertices_criterion(vertices, pred_vertices)
-            loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
-            loss = loss1 + loss2
+            loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
             loss.backward()
             optimizer.step()
 
@@ -102,10 +98,7 @@ def train_model(
                 mask = mask.to(device)
                 vertices = vertices.to(device)
                 keypoints = keypoints.to(device)
-
-                loss1 = vertices_criterion(vertices, pred_vertices)
-                loss2 = keypoints_criterion(labels=keypoints, pred_joints=pred_joints)
-                loss = loss1 + loss2
+                loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
 
                 val_loss += loss.item() * image.size(0)
             val_loss /= len(dataloader_val.dataset)

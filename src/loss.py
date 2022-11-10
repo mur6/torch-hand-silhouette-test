@@ -117,6 +117,17 @@ def keypoints_2d_criterion(*, labels, pred_joints):
     # torch.sum((labels - pred_joints) ** 2)
 
 
-# + 0.1 * l1_loss(outputs['refined_vertices'], meshes) \
-# + aligned_meshes_loss(meshes, outputs['refined_vertices']) \
-# + 1e-4 * contour_loss(outputs['silhouettes'], dist_maps)
+def criterion(outputs, *, keypoints, meshes):
+    mse_loss = nn.MSELoss()
+    l1_loss = nn.L1Loss()
+
+    pred_joints = outputs["joints"]
+    pred_vertices = outputs["vertices"]
+
+    return (
+        2e-3 * mse_loss(pred_joints, keypoints)
+        + 2e-2 * aligned_joints_loss(keypoints, pred_joints)
+        + 2e-3 * mse_loss(outputs["refined_joints"], keypoints)
+        + 2e-2 * aligned_joints_loss(keypoints, outputs["refined_joints"])
+        + 0.1 * l1_loss(outputs["refined_vertices"], meshes)
+    )
