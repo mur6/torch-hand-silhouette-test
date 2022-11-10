@@ -183,7 +183,7 @@ def main(args):
 
     dataset_train = FreiHAND(args.data_path)
     dataloader_train = DataLoader(
-        dataset=dataset_train, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True
+        dataset=dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=16, pin_memory=True
     )
 
     print("Number of samples in training dataset: ", len(dataset_train))
