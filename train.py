@@ -53,7 +53,15 @@ def main(args):
         dataset=dataset, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True
     )
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     for image, image_raw, mask, vertices, keypoints, keypoints2d in dataloader_train:
+        image = image.to(device)
+        image_raw = image_raw.to(device)
+        mask = mask.to(device)
+        vertices = vertices.to(device)
+        keypoints = keypoints.to(device)
+        keypoints2d = keypoints2d.to(device)
         break
 
     print("image: ", image.shape, image.dtype)
@@ -61,8 +69,6 @@ def main(args):
     print("keypoints: ", keypoints.shape, keypoints.dtype)
     print("keypoints2d: ", keypoints2d.shape, keypoints2d.dtype)
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    image = image.to(device)
     # silhouette_renderer, phong_renderer = make_silhouette_phong_renderer(device)
     hand_model = HandModelWithResnet(device=device, batch_size=args.batch_size)
     hand_model.to(device)
@@ -90,7 +96,8 @@ def main(args):
         loss.backward()
         optimizer.step()
         tqdm.write(
-            f"[Epoch {epoch}] Training Loss: {loss} pred_vertices: {pred_vertices.shape} pred_joints: {pred_joints.shape}"
+            f"[Epoch {epoch}] Training Loss: {loss}"
+            # f"[Epoch {epoch}] Training Loss: {loss} pred_vertices: {pred_vertices.shape} pred_joints: {pred_joints.shape}"
         )
     # print("vertices: ", vertices.shape, vertices.dtype, vertices[0])
     print("pred_vertices: ", pred_vertices.shape)
