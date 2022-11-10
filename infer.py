@@ -36,10 +36,10 @@ def main(args):
     # image = torchvision.transforms.functional.pil_to_tensor(img) / 255.0
     x = images_to_tensors(images)
     print(x.shape)
-    if False:
+    if True:
         fig = plt.figure()
         ax = fig.add_subplot()
-        ax.imshow(x.permute(1, 2, 0))
+        ax.imshow(x[0].permute(1, 2, 0))
         plt.show()
     # x.unsqueeze_(0)
     print(x.shape)
