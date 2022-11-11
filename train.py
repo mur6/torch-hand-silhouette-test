@@ -80,7 +80,7 @@ def train_model(
             keypoints = keypoints.to(device)
 
             optimizer.zero_grad()
-            outputs = model(image)
+            outputs = model(image, mask)
             loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
             loss.backward()
             optimizer.step()
@@ -98,6 +98,8 @@ def train_model(
                 mask = mask.to(device)
                 vertices = vertices.to(device)
                 keypoints = keypoints.to(device)
+
+                outputs = model(image, mask)
                 loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
 
                 val_loss += loss.item() * image.size(0)
