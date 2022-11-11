@@ -177,7 +177,7 @@ class HandModelWithResnet(nn.Module):
             faces_per_pixel=100,
         )
 
-    def forward(self, image, mask_gt):
+    def forward(self, image, focal_lens, mask_gt):
         x = self.feature_extractor(image)
         hand_pca_pose = self.hand_pca_estimator(x)
         hand_shape = self.hand_shape_estimator(x)
@@ -215,7 +215,7 @@ class HandModelWithResnet(nn.Module):
         )
 
         # Render the meshes
-        self.cameras = PerspectiveCameras(device=self.device)
+        self.cameras = PerspectiveCameras(focal_length=focal_lens * 2.0 / 224, device=self.device)
         # Create a silhouette mesh renderer by composing a rasterizer and a shader
         self.silhouette_renderer = MeshRenderer(
             rasterizer=MeshRasterizer(cameras=self.cameras, raster_settings=self.raster_settings),

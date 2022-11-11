@@ -71,15 +71,16 @@ def train_model(
 
         # Train Phase
         model.train()
-        for image, image_raw, mask, vertices, keypoints in dataloader_train:
+        for image, focal_len, image_raw, mask, vertices, keypoints in dataloader_train:
             image = image.to(device)
+            focal_len = focal_len.to(device)
             image_raw = image_raw.to(device)
             mask = mask.to(device)
             vertices = vertices.to(device)
             keypoints = keypoints.to(device)
 
             optimizer.zero_grad()
-            outputs = model(image, mask)
+            outputs = model(image, focal_len, mask)
             loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
             loss.backward()
             optimizer.step()
@@ -91,14 +92,15 @@ def train_model(
         # Validation Phase
         model.eval()
         with torch.no_grad():
-            for image, image_raw, mask, vertices, keypoints in dataloader_train:
+            for image, focal_len, image_raw, mask, vertices, keypoints in dataloader_train:
                 image = image.to(device)
+                focal_len = focal_len.to(device)
                 image_raw = image_raw.to(device)
                 mask = mask.to(device)
                 vertices = vertices.to(device)
                 keypoints = keypoints.to(device)
 
-                outputs = model(image, mask)
+                outputs = model(image, focal_len, mask)
                 loss = criterion(outputs, keypoints=keypoints, meshes=vertices)
 
                 val_loss += loss.item() * image.size(0)
