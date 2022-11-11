@@ -215,6 +215,12 @@ class HandModelWithResnet(nn.Module):
         )
 
         # Render the meshes
+        self.cameras = PerspectiveCameras(device=self.device)
+        # Create a silhouette mesh renderer by composing a rasterizer and a shader
+        self.silhouette_renderer = MeshRenderer(
+            rasterizer=MeshRasterizer(cameras=self.cameras, raster_settings=self.raster_settings),
+            shader=SoftSilhouetteShader(blend_params=self.blend_params),
+        )
         silhouettes = self.silhouette_renderer(meshes_world=hand_meshes)
         silhouettes = silhouettes[..., 3]
         # ################### pytorch3d: End #############################
