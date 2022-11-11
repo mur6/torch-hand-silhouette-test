@@ -205,7 +205,7 @@ def main(args):
     print("Number of samples in validation dataset: ", len(dataset_val))
 
     # Create model, optimizer, and learning rate scheduler
-    model = HandModelWithResnet(device=device, batch_size=args.batch_size)
+    model = HandModelWithResnet(device=device)
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.init_lr)
